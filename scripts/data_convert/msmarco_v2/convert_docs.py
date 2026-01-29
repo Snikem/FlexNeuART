@@ -107,24 +107,24 @@ class DocParseWorker:
         doc_str = json.dumps(doc) + '\n'
         return doc_str
 
+if __name__ == "__main__":
+    proc_qty = args.proc_qty
+    print(f'Spanning {proc_qty} processes')
+    pool = multiprocessing.Pool(processes=proc_qty)
+    ln = 0
+    for doc_str in pool.imap(DocParseWorker(), inp_source, IMAP_PROC_CHUNK_QTY):
+        ln = ln + 1
+        if doc_str is not None:
+            out_file.write(doc_str)
+        else:
+            # print('Misformatted line %d ignoring:' % ln)
+            # print(line.replace('\t', '<field delimiter>'))
+            print('Ignoring misformatted line %d' % ln)
 
-proc_qty = args.proc_qty
-print(f'Spanning {proc_qty} processes')
-pool = multiprocessing.Pool(processes=proc_qty)
-ln = 0
-for doc_str in pool.imap(DocParseWorker(), inp_source, IMAP_PROC_CHUNK_QTY):
-    ln = ln + 1
-    if doc_str is not None:
-        out_file.write(doc_str)
-    else:
-        # print('Misformatted line %d ignoring:' % ln)
-        # print(line.replace('\t', '<field delimiter>'))
-        print('Ignoring misformatted line %d' % ln)
+        if ln % REPORT_QTY == 0:
+            print('Processed %d docs' % ln)
 
-    if ln % REPORT_QTY == 0:
-        print('Processed %d docs' % ln)
+    print('Processed %d docs' % ln)
 
-print('Processed %d docs' % ln)
-
-# inp_source is not a file and doesn't need closing
-out_file.close()
+    # inp_source is not a file and doesn't need closing
+    out_file.close()

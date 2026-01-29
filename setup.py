@@ -12,11 +12,11 @@ ROOT_DIR_NAME = 'flexneuart'
 
 REC_FILE='requirements.txt'
 
-try:
-    print(subprocess.check_output(f'pip install -r {REC_FILE}'.split()).decode())
-except:
-    print(f'Failed to install requirements from the file {REC_FILE}')
-    sys.exit(1)
+# try:
+#     print(subprocess.check_output(f'pip install -r {REC_FILE}'.split()).decode())
+# except:
+#     print(f'Failed to install requirements from the file {REC_FILE}')
+#     sys.exit(1)
 
 # Version *MUST* be in Sync with pom.xml
 sys.path.append(ROOT_DIR_NAME)

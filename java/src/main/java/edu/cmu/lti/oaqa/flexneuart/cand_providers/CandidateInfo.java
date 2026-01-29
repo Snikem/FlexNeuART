@@ -20,7 +20,7 @@ public class CandidateInfo implements java.io.Serializable {
   public final long              mNumFound;
   public final CandidateEntry[]  mEntries;
   
-  CandidateInfo(long numFound, CandidateEntry[] entries) {
+  public CandidateInfo(long numFound, CandidateEntry[] entries) {
     mNumFound = numFound;
     mEntries = entries;
   }

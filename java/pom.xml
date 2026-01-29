@@ -38,6 +38,20 @@
 	</dependencyManagement>
 
   <dependencies>
+      <dependency>
+          <groupId>org.apache.opennlp</groupId>
+          <artifactId>opennlp-tools</artifactId>
+          <version>1.9.4</version>
+      </dependency>
+      <dependency>
+          <groupId>com.microsoft.onnxruntime</groupId>
+          <artifactId>onnxruntime</artifactId>
+          <version>1.16.3</version>
+      </dependency>
+      <dependency>
+          <groupId>ai.catboost</groupId>
+          <artifactId>catboost-prediction</artifactId>
+          <version>1.2</version> </dependency>
 
     <dependency>
       <groupId>commons-cli</groupId>
@@ -210,6 +224,7 @@
       <artifactId>bson</artifactId>
       <version>4.2.3</version>
     </dependency>
+
 
   </dependencies>
 

@@ -31,12 +31,14 @@ public abstract class CandidateProvider {
   public static final String CAND_TYPE_NMSLIB      = "nmslib";
   public static final String CAND_TYPE_ID_MAPPER   = "id_mapper";
   public static final String CAND_TYPE_TREC_RUNS   = "trec_runs";
- 
+  public static final String CAND_TYPE_MONOFOREST = "monoforest";
+
   public final static String CAND_PROVID_DESC = "candidate record provider type: " + 
       CandidateProvider.CAND_TYPE_LUCENE + ", " + 
       CandidateProvider.CAND_TYPE_NMSLIB + ", " +
       CandidateProvider.CAND_TYPE_TREC_RUNS + ", " +
-      CandidateProvider.CAND_TYPE_ID_MAPPER;
+      CandidateProvider.CAND_TYPE_ID_MAPPER + ", " +
+          CandidateProvider.CAND_TYPE_MONOFOREST;
 
   /**
    * @return  true if {@link #getCandidates(int, Map, int)} can be called by 
