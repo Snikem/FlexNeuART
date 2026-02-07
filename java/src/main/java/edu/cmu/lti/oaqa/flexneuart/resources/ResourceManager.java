@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.HashMap;
 
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.MonoforestCandidateProvide;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -167,6 +168,10 @@ public class ResourceManager {
         res[ic] = res[0].isThreadSafe() ? res[0] : new IdMapperCandidateProvider(this, provURI, addConf);
       }
             
+    } else if (provType.equalsIgnoreCase(CandidateProvider.CAND_TYPE_MONOFOREST)) {
+        res[0] = new MonoforestCandidateProvide("", addConf);
+        for (int ic = 1; ic < threadQty; ++ic)
+            res[ic] = res[0];
     } else {
       throw new Exception("Invalid provider type: " + provType);
     }

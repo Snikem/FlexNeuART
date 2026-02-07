@@ -1,6 +1,6 @@
-
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider;
 
+import java.nio.file.Files;
 import java.util.*;
 import java.io.*;
 import java.nio.file.Paths;
@@ -12,36 +12,27 @@ import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.DocFeatureStore;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.FactorManager;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.MsMarcoRawReader;
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.index.*;
-import org.apache.lucene.queryparser.classic.QueryParser;
-import org.apache.lucene.search.*;
-import org.apache.lucene.search.similarities.BM25Similarity;
-import org.apache.lucene.search.similarities.Similarity;
-import org.apache.lucene.store.FSDirectory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import edu.cmu.lti.oaqa.flexneuart.letor.CommonParams;
 import edu.cmu.lti.oaqa.flexneuart.resources.RestrictedJsonConfig;
-import edu.cmu.lti.oaqa.flexneuart.simil_func.BM25SimilarityLucene;
 import edu.cmu.lti.oaqa.flexneuart.utils.Const;
 import edu.cmu.lti.oaqa.flexneuart.utils.DataEntryFields;
-import edu.cmu.lti.oaqa.flexneuart.utils.StringUtils;
-
-import com.google.common.base.Splitter;
 
 public class MonoforestCandidateProvide extends CandidateProvider {
 
     //TODO:hardcode
     public static final String inputPath = "/Volumes/Ex_Volume/msmarco/msmarco_v2_doc/";
-    public static final String modelPath = "/Users/snikem/proga/FactorFactory/catboost_model.onnx";
+    public static final String modelPath = "/Users/snikem/proga/FactorFactory/catboost_model.cbm";
+    // Путь к файлу для логов скоринга
+    public static final String debugPath = "/Volumes/Ex_Volume/msmarcoProcces/results/dev/my_tests/monoforest_run/debug_score.log";
+
     final Logger logger = LoggerFactory.getLogger(MonoforestCandidateProvide.class);
 
     private FactorManager fm;
     private DocFeatureStore docFeatureStore;
+    private String mQueryFieldName;
 
     @Override
     public String getName() {
@@ -50,11 +41,11 @@ public class MonoforestCandidateProvide extends CandidateProvider {
 
     /**
      * Constructor.
-
-     * @param addConf         additional/optional configuration: can be null
+     * @param addConf additional/optional configuration: can be null
      * @throws Exception
      */
-    public MonoforestCandidateProvide(RestrictedJsonConfig addConf) throws Exception {
+    // Исправил конструктор, добавив String uri (нужен для совместимости с ResourceManager)
+    public MonoforestCandidateProvide(String uri, RestrictedJsonConfig addConf) throws Exception {
 
         if (addConf == null) {
             mQueryFieldName = Const.DEFAULT_QUERY_TEXT_FIELD_NAME;
@@ -69,10 +60,6 @@ public class MonoforestCandidateProvide extends CandidateProvider {
         logger.info("number of docs {}", docFeatureStore.getVectorSize());
     }
 
-    /*
-     *  The function getCandidates is thread-safe, because IndexSearcher is thread safe:
-     *  https://wiki.apache.org/lucene-java/LuceneFAQ#Is_the_IndexSearcher_thread-safe.3F
-     */
     @Override
     public boolean isThreadSafe() { return true; }
 
@@ -93,21 +80,24 @@ public class MonoforestCandidateProvide extends CandidateProvider {
                     String.format("Query (%s) is undefined for query # %d", mQueryFieldName, queryNum));
         }
 
-        long    numFound = 0;
+        long numFound = 0;
 
         if (query.isEmpty()) {
             logger.warn("Ignoring empty query #: " + queryNum);
         } else {
             float[] queryFactor = fm.extractQueryFactors(query);
+
+            // Добавляем BufferedWriter в try-with-resources
             try (
                     MsMarcoRawReader reader = new MsMarcoRawReader(inputPath);
-                    CatBoostInference model = new CatBoostInference(modelPath)
+                    CatBoostInference model = new CatBoostInference(modelPath);
+                    // Открываем файл в режиме append (true), чтобы не перезаписывать его каждым запросом
+                    BufferedWriter writer = new BufferedWriter(new FileWriter(debugPath, true))
             ) {
 
                 MsMarcoRawReader.DocEntry doc;
                 int count = 0;
 
-                // Простой цикл, как вы хотели
                 while ((doc = reader.getNext()) != null) {
                     float[] docFactor = docFeatureStore.getFeatures(doc.id);
                     float[] jointFactor = fm.extractJointFactors(query, doc.title, doc.fullText, doc.id);
@@ -116,18 +106,25 @@ public class MonoforestCandidateProvide extends CandidateProvider {
                     float score = model.predictProbability(totalVector);
 
                     resArr.add(new CandidateEntry(doc.id, score));
-                    if (count % 1000000 == 0) {
+
+                    // --- Логирование каждого 100-го документа ---
+                    if (count % 10000 == 0 ) {
+                        logger.info("Query:{}| DocID:{}| Score: {}", query, doc.id, score);
+                    }
+                    // Логируем в консоль реже, чтобы не спамить
+                    if (count % 10000 == 0) {
                         logger.info("{} обработал ", count);
                     }
+
                     count++;
                 }
 
+                numFound = count; // Обновляем общее количество найденных документов
                 System.out.println("Done! Total docs: " + count);
 
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
         }
 
         CandidateEntry[] results = resArr.toArray(new CandidateEntry[resArr.size()]);
@@ -137,9 +134,74 @@ public class MonoforestCandidateProvide extends CandidateProvider {
             results = Arrays.copyOf(results, maxQty);
         }
         System.out.println("given candidate for query: " + query);
+
         return new CandidateInfo(numFound, results);
-
     }
+    //TODO: удалить
+    public static final String debugDocFile = "/Volumes/Ex_Volume/msmarcoProcces/target_doc_body.txt";
 
-    private String        mQueryFieldName;
+    public static void main(String[] args) {
+        System.out.println("==================================================");
+        System.out.println("STARTING SINGLE DOC TEST (FROM FILE)");
+        System.out.println("==================================================");
+
+        // Входные данные
+        String targetDocId = "msmarco_doc_16_2049958358";
+        String testQuery = "androgen receptor define";
+        String docTitle = "Test Title (can be empty if unknown)"; // Если знаете заголовок, впишите, это влияет на фичи
+
+        try {
+            // 1. Читаем текст документа из файла
+            System.out.println("1. Reading document text from: " + debugDocFile);
+            String docBody = new String(Files.readAllBytes(Paths.get(debugDocFile)));
+
+            System.out.println("   Text length: " + docBody.length() + " chars");
+            if (docBody.length() > 100) System.out.println("   Snippet: " + docBody.substring(0, 100) + "...");
+
+            // 2. Инициализация
+            System.out.println("2. Initializing Provider...");
+            MonoforestCandidateProvide provider = new MonoforestCandidateProvide("dummy", null);
+
+            System.out.println("3. Loading Model...");
+            try (CatBoostInference model = new CatBoostInference(modelPath)) {
+
+                // 4. Расчет факторов
+                System.out.println("4. Calculating features...");
+
+                // A. Query Factors
+                float[] queryFactors = provider.fm.extractQueryFactors(testQuery);
+                System.out.println("   Query Factors: " + Arrays.toString(queryFactors));
+
+                // B. Doc Factors (из базы pre-computed)
+                float[] docFactors = provider.docFeatureStore.getFeatures(targetDocId);
+                if (docFactors == null) {
+                    System.err.println("WARNING: Doc features not found in .bin file for ID: " + targetDocId);
+                    System.err.println("Using zero vector for doc features.");
+                    docFactors = new float[provider.docFeatureStore.getVectorSize()];
+                }
+                System.out.println("   Doc Factors: " + Arrays.toString(docFactors));
+
+                // C. Joint Factors (самое важное - тут работает текст из файла)
+                float[] jointFactors = provider.fm.extractJointFactors(testQuery, docTitle, docBody, targetDocId);
+                System.out.println("   Joint Factors: " + Arrays.toString(jointFactors));
+
+                // 5. Слияние
+                float[] totalVector = provider.fm.mergeFactors(jointFactors, queryFactors, docFactors);
+                System.out.println("   TOTAL VECTOR: " + Arrays.toString(totalVector));
+
+                // 6. ПРЕДСКАЗАНИЕ
+                float score = model.predictProbability(totalVector);
+
+                System.out.println("\n--------------------------------------------------");
+                System.out.println(">>> PREDICTED SCORE: " + String.format("%.6f", score) + " <<<");
+                System.out.println("--------------------------------------------------");
+            }
+
+        } catch (IOException e) {
+            System.err.println("ERROR READING FILE: " + e.getMessage());
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

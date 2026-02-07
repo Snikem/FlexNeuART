@@ -9,7 +9,12 @@ import java.io.InputStream;
 
 public class QueryQuantityNouns extends QueryFactor {
 
-    private POSTaggerME tagger;
+    // Модель потокобезопасна, храним одну копию
+    private POSModel model;
+
+    // Таггер НЕ потокобезопасен, используем ThreadLocal, чтобы у каждого потока был свой экземпляр
+    private ThreadLocal<POSTaggerME> taggerHolder;
+
     private SimpleTokenizer tokenizer;
     private boolean isReady = false;
 
@@ -31,12 +36,17 @@ public class QueryQuantityNouns extends QueryFactor {
     @Override
     public void prepare() {
         try {
-            // Загружаем модель POS-таггера из ресурсов
-            // Файл en-pos-maxent.bin должен лежать в папке src/main/resources
+            // Загружаем модель POS-таггера из ресурсов (ОДИН РАЗ)
             InputStream modelIn = getClass().getResourceAsStream("/en-pos-maxent.bin");
+
             if (modelIn != null) {
-                POSModel model = new POSModel(modelIn);
-                this.tagger = new POSTaggerME(model);
+                // POSModel потокобезопасна и потребляет много памяти, создаем её один раз
+                this.model = new POSModel(modelIn);
+
+                // Инициализируем фабрику для ThreadLocal.
+                // Каждый новый поток будет создавать себе свой POSTaggerME, используя общую model.
+                this.taggerHolder = ThreadLocal.withInitial(() -> new POSTaggerME(this.model));
+
                 this.tokenizer = SimpleTokenizer.INSTANCE;
                 this.isReady = true;
             } else {
@@ -44,26 +54,33 @@ public class QueryQuantityNouns extends QueryFactor {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            this.isReady = false;
         }
     }
 
     @Override
     public float[] calculateScore(String query) {
-        if (!isReady || query == null || query.isEmpty()) {
+        if (!isReady || query == null || query.trim().isEmpty()) {
             return new float[]{0f};
         }
 
-        // 1. Токенизация (разбиваем на слова)
+        // 1. Токенизация
         String[] tokens = tokenizer.tokenize(query);
 
-        // 2. POS-теггинг (определяем части речи)
-        String[] tags = tagger.tag(tokens);
+        // Защита от пустых токенов (на всякий случай)
+        if (tokens == null || tokens.length == 0) {
+            return new float[]{0f};
+        }
+
+        // 2. POS-теггинг
+        // ПОЛУЧАЕМ ТАГГЕР ИЗ ThreadLocal (уникальный для текущего потока)
+        POSTaggerME localTagger = taggerHolder.get();
+
+        String[] tags = localTagger.tag(tokens);
 
         // 3. Подсчет существительных
         int nounCount = 0;
         for (String tag : tags) {
-            // В Penn Treebank теги существительных начинаются с NN:
-            // NN (noun, singular), NNS (noun plural), NNP (proper noun), NNPS...
             if (tag.startsWith("NN")) {
                 nounCount++;
             }
