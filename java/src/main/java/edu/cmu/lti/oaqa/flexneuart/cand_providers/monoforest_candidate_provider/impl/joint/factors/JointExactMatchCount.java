@@ -2,9 +2,7 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.JointFactor;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class JointExactMatchCount extends JointFactor {
@@ -32,6 +30,35 @@ public class JointExactMatchCount extends JointFactor {
     }
 
     @Override
+    public ArrayList<float[]> calculateForQueries(ArrayList<String> queries, String title, String document, String doc_id) {
+        int numQueries = queries.size();
+
+        ArrayList<float[]> result = new ArrayList<>(numQueries);
+
+        Set<String> dWords = tokenizeSet(document);
+
+        if (dWords.isEmpty()) {
+            float[] zero = new float[]{0f};
+            for (int i = 0; i < numQueries; i++) {
+                result.add(new float[]{0f});
+            }
+            return result;
+        }
+
+        for (int i = 0; i < numQueries; i++) {
+            String query = queries.get(i);
+
+            Set<String> qWords = tokenizeSet(query);
+
+            qWords.retainAll(dWords);
+
+            result.add(new float[] { (float) qWords.size() });
+        }
+
+        return result;
+    }
+
+    @Override
     public int getFeatureQty() {
         return 1;
     }
@@ -51,15 +78,29 @@ public class JointExactMatchCount extends JointFactor {
      */
     private Set<String> tokenizeSet(String text) {
         if (text == null || text.trim().isEmpty()) {
-            return new HashSet<>(); // Возвращаем пустой изменяемый Set
+            return Collections.emptySet();
         }
 
+        // 1. Lowercase
         String lower = text.toLowerCase();
-        String cleaned = TOKENIZE_PATTERN.matcher(lower).replaceAll(" ");
-        String[] tokens = cleaned.trim().split("\\s+");
+        String noApostrophes = lower.replace("'", "");
 
-        Set<String> result = new HashSet<>();
-        Collections.addAll(result, tokens);
+        // 2. Замена спецсимволов на пробел
+        String cleaned = TOKENIZE_PATTERN.matcher(noApostrophes).replaceAll(" ");
+
+        // Убираем лишние пробелы по краям
+        String trimmed = cleaned.trim();
+
+        // 3. Защита от пустой строки после очистки от спецсимволов
+        if (trimmed.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        // 4. Split по пробелам
+        String[] tokens = trimmed.split("\\s+");
+
+        // 5. Собираем в Set
+        Set<String> result = new HashSet<>(Arrays.asList(tokens));
 
         return result;
     }

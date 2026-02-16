@@ -22,7 +22,7 @@ public class QueryQuantityWords extends QueryFactor {
 
     @Override
     public int getFeatureQty() {
-        return 1; // Мы возвращаем 3 числа: len(query)
+        return 1;
     }
 
     @Override

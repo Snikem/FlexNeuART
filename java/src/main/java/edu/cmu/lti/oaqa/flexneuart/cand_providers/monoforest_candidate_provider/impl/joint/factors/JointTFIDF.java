@@ -85,6 +85,73 @@ public class JointTFIDF extends JointFactor {
     }
 
     @Override
+    public ArrayList<float[]> calculateForQueries(ArrayList<String> queries, String title, String document, String doc_id) {
+        if (!isReady || queries == null) {
+            System.out.println("queries == null");
+            return new ArrayList<float[]>();
+        }
+
+
+
+        // Собираем текст для подсчета TF
+        StringBuilder sb = new StringBuilder();
+        if (title != null) sb.append(title).append(" ");
+        if (document != null) sb.append(document);
+        String docText = sb.toString();
+
+        if (docText.trim().isEmpty()){
+            System.out.println("docText.trim().isEmpty()");
+            return new ArrayList<float[]>();
+        }
+
+        try {
+            // 1. Токенизация (тем же анализатором, что и индекс!)
+            ArrayList<List<String>> listQueryTokens = new ArrayList<>();
+            for( String query : queries) {
+                listQueryTokens.add(analyze(query));
+            }
+            List<String> docTokens = analyze(docText);
+
+            if (docTokens.isEmpty() || listQueryTokens.isEmpty()){
+                System.out.println("docTokens.isEmpty() || listQueryTokens.isEmpty()");
+                return new ArrayList<float[]>();
+            }
+
+            // 2. Считаем TF (частоту слов) в текущем документе
+            Map<String, Integer> docTF = new HashMap<>();
+            for (String t : docTokens) {
+                docTF.put(t, docTF.getOrDefault(t, 0) + 1);
+            }
+            ArrayList<float[]> result = new ArrayList<float[]>();
+            for(List<String> queryTokens : listQueryTokens ) {
+                // 3. Вычисляем суммарный TF-IDF
+                double totalScore = 0.0;
+
+                for (String qTerm : queryTokens) {
+                    // Если слова нет в документе, TF = 0 -> вклад 0
+                    if (!docTF.containsKey(qTerm)) continue;
+
+                    int tf = docTF.get(qTerm);
+
+                    // Получаем IDF из индекса
+                    double idf = getIDF(qTerm);
+
+                    // TF * IDF
+                    // Можно использовать Math.sqrt(tf) для сглаживания, но классика просто tf * idf
+                    totalScore += (tf * idf);
+                }
+                result.add(new float[] { (float) totalScore });
+            }
+
+            return result;
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return new ArrayList<float[]>();
+        }
+    }
+
+    @Override
     public int getFeatureQty() {
         return 1;
     }

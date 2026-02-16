@@ -51,7 +51,11 @@ public class QueryFrequencyWords extends QueryFactor {
 
         float mean = (float) (sum / counts.size());
 
-        return new float[] { (float) min, (float) max, mean };
+        return new float[] {
+                (float) Math.log(1 + min),
+                (float) Math.log(1 + max),
+                (float) Math.log(1 + mean)
+        };
     }
 
     @Override

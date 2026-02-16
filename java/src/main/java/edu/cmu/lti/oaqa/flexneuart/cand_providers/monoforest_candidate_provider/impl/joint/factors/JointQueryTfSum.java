@@ -2,6 +2,7 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.JointFactor;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -38,6 +39,42 @@ public class JointQueryTfSum extends JointFactor {
         }
 
         return new float[] { sumTf };
+    }
+
+    @Override
+    public ArrayList<float[]> calculateForQueries(ArrayList<String> queries, String title, String document, String doc_id) {
+        int numQueries = queries.size();
+
+        ArrayList<float[]> result = new ArrayList<>(numQueries);
+
+        if (document == null) document = "";
+
+        String[] docTokens = tokenize(document);
+
+        int mapCapacity = (int) (docTokens.length / 0.75f) + 1;
+        Map<String, Integer> docTf = new HashMap<>(mapCapacity);
+
+        for (String token : docTokens) {
+            docTf.merge(token, 1, Integer::sum);
+        }
+
+        for (int i = 0; i < numQueries; i++) {
+            String query = queries.get(i);
+
+            String[] queryTokens = tokenize(query);
+
+            float sumTf = 0;
+            for (String term : queryTokens) {
+                Integer count = docTf.get(term);
+                if (count != null) {
+                    sumTf += count;
+                }
+            }
+
+            result.add(new float[] { sumTf });
+        }
+
+        return result;
     }
 
     @Override

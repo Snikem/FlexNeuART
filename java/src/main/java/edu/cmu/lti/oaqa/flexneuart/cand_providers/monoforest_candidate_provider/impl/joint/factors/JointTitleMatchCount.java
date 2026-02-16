@@ -2,9 +2,7 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.JointFactor;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class JointTitleMatchCount extends JointFactor {
@@ -14,23 +12,50 @@ public class JointTitleMatchCount extends JointFactor {
 
     @Override
     public String getName() {
-        return "feature_title_match_count";
+        return "feature_exact_match_count";
     }
 
     @Override
     public float[] calculateScore(String query, String title, String document, String doc_id) {
-        // Получаем множества уникальных слов
+        // 1. Токенизация в множества (Set)
         Set<String> qWords = tokenizeSet(query);
-        Set<String> tWords = tokenizeSet(title);
+        Set<String> dWords = tokenizeSet(title);
 
-        // Ищем пересечение (intersection)
-        // Создаем копию qWords, чтобы не менять оригинал (хотя здесь это не критично)
-        Set<String> intersection = new HashSet<>(qWords);
+        // 2. Находим пересечение (intersection)
+        // retainAll оставляет в qWords только те элементы, которые есть в dWords
+        qWords.retainAll(dWords);
 
-        // Оставляем только те слова, которые есть и в tWords
-        intersection.retainAll(tWords);
+        // 3. Возвращаем размер пересечения
+        return new float[] { (float) qWords.size() };
+    }
 
-        return new float[] { (float) intersection.size() };
+    @Override
+    public ArrayList<float[]> calculateForQueries(ArrayList<String> queries, String title, String document, String doc_id) {
+        int numQueries = queries.size();
+
+        ArrayList<float[]> result = new ArrayList<>(numQueries);
+
+        Set<String> dWords = tokenizeSet(title);
+
+        if (dWords.isEmpty()) {
+            float[] zero = new float[]{0f};
+            for (int i = 0; i < numQueries; i++) {
+                result.add(new float[]{0f});
+            }
+            return result;
+        }
+
+        for (int i = 0; i < numQueries; i++) {
+            String query = queries.get(i);
+
+            Set<String> qWords = tokenizeSet(query);
+
+            qWords.retainAll(dWords);
+
+            result.add(new float[] { (float) qWords.size() });
+        }
+
+        return result;
     }
 
     @Override
@@ -40,7 +65,7 @@ public class JointTitleMatchCount extends JointFactor {
 
     @Override
     public String getDescription() {
-        return "Количество одинаковых уникальных слов в заголовке и запросе";
+        return "Количество одинаковых уникальных слов в документе и запросе";
     }
 
     @Override
@@ -49,8 +74,7 @@ public class JointTitleMatchCount extends JointFactor {
     }
 
     /**
-     * Токенизация в множество (уникальные слова).
-     * Аналог Python: set(_TOKENIZE_PATTERN.sub(" ", text.lower()).split())
+     * Токенизация: lowercase -> удаление мусора -> split -> set
      */
     private Set<String> tokenizeSet(String text) {
         if (text == null || text.trim().isEmpty()) {
@@ -59,16 +83,24 @@ public class JointTitleMatchCount extends JointFactor {
 
         // 1. Lowercase
         String lower = text.toLowerCase();
+        String noApostrophes = lower.replace("'", "");
 
         // 2. Замена спецсимволов на пробел
-        String cleaned = TOKENIZE_PATTERN.matcher(lower).replaceAll(" ");
+        String cleaned = TOKENIZE_PATTERN.matcher(noApostrophes).replaceAll(" ");
 
-        // 3. Split по пробелам
-        String[] tokens = cleaned.trim().split("\\s+");
+        // Убираем лишние пробелы по краям
+        String trimmed = cleaned.trim();
 
-        // 4. Собираем в Set (автоматически убирает дубликаты)
-        Set<String> result = new HashSet<>();
-        Collections.addAll(result, tokens);
+        // 3. Защита от пустой строки после очистки от спецсимволов
+        if (trimmed.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        // 4. Split по пробелам
+        String[] tokens = trimmed.split("\\s+");
+
+        // 5. Собираем в Set
+        Set<String> result = new HashSet<>(Arrays.asList(tokens));
 
         return result;
     }

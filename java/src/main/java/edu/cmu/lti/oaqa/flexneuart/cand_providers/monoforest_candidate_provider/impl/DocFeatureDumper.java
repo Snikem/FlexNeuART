@@ -67,11 +67,11 @@ public class DocFeatureDumper {
 
                             // Собираем полный текст документа: Заголовки + Тело
                             // Это важно, чтобы факторы учитывали весь контент
-                            String fullBodyText = headings + "\n" + body;
+
 
                             // 5. Расчет факторов
                             // ВАЖНО: Убедитесь, что в FactorManager есть метод extractDocFeatures(title, document, docId)
-                            float[] feats = manager.extractDocFactors(title, fullBodyText, docId);
+                            float[] feats = manager.extractDocFactors(title, body, docId);
 
                             // 6. Запись в бинарник
                             dos.writeUTF(docId);
