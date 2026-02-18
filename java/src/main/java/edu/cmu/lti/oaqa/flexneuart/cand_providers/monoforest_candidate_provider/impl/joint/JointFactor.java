@@ -2,6 +2,7 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.BaseFactor;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public abstract class JointFactor extends BaseFactor {

@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
@@ -36,9 +37,6 @@ public class FullFeatureDumper {
         FactorManager manager = new FactorManager();
 
         System.out.println(manager.getVectorsName());
-        float[] dummyFeats = manager.extractAll("test", "test", "test", "0");
-        int featureVectorSize = dummyFeats.length;
-        System.out.println("Feature vector size: " + featureVectorSize);
 
         System.out.println("Loading queries from: " + QUERIES_FILE);
         List<QueryInfo> queries = loadQueriesFromJson(QUERIES_FILE);
@@ -64,7 +62,7 @@ public class FullFeatureDumper {
 
         long totalExtractTime = 0;   // Время на manager.extractAll (математика)
         long totalLoopTime = 0;      // Общее время цикла обработки файла
-
+        long stored = 0;
         try (DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(Paths.get(OUTPUT_BINARY_FILE))))) {
 
             for (int i = 0; i < 60; i++) {
@@ -82,6 +80,7 @@ public class FullFeatureDumper {
                         new GZIPInputStream(Files.newInputStream(file.toPath())), StandardCharsets.UTF_8))) {
 
                     String line;
+
                     while ((line = br.readLine()) != null) {
                         long tStartLoop = System.nanoTime();
 
@@ -94,56 +93,54 @@ public class FullFeatureDumper {
                             String body = docJson.optString("body", "");
                             String fullDocText = headings + "\n" + body;
 
-
-
-                            float[] docFactors = manager.extractDocFactors(title,body,docId);
-
                             // --- Внутренний цикл по запросам ---
 
 
                             // --- ТАЙМЕР 2: Расчет факторов (Heavy Math) ---
                             long t2 = System.nanoTime();
 
-                            ArrayList<float[]> jointFactors =  manager.extractJointFactorsByQueries(textQueries,title, body, docId);
+                            ArrayList<float[]> res =  manager.extractJointFactorsByQueries(textQueries, title, body, docId);
                             long t3 = System.nanoTime();
-                            ArrayList<float[]> res =  manager.mergeFactorsBatch(jointFactors,listQueriesFactors, docFactors);
 
 
                             totalExtractTime += (t3 - t2);
 
                             for (int j = 0; j < res.size(); j++) {
+
                                 String currentQueryId = queries.get(j).id;
                                 // 2. Берем итоговый вектор факторов
                                 float[] vector = res.get(j);
 
-                                // 3. Записываем в поток
-                                dos.writeUTF(currentQueryId); // ID Запроса
-                                dos.writeUTF(docId);          // ID Документа (одинаковый для всей пачки)
+                                if (vector[0] > 0.4 && vector[1] > 0.4) {
+                                    dos.writeUTF(currentQueryId); // ID Запроса
+                                    dos.writeUTF(docId);          // ID Документа (одинаковый для всей пачки)
 
-                                // Пишем сам вектор
-                                for (float f : vector) {
-                                    dos.writeFloat(f);
+                                    // Пишем сам вектор
+                                    for (float f : vector) {
+                                        dos.writeFloat(f);
+                                    }
+                                    stored++;
+
                                 }
                             }
 
                             totalPairsProcessed++;
-//                            if (totalPairsProcessed % 1000 == 0) {
-//                                printRandomDebugInfo(docId, fullDocText, textQueries, res);
-//                            }
+                            if (totalPairsProcessed % 1000 == 0) {
+                                printBestMatchDebugInfo(docId, fullDocText, textQueries, res);
+                            }
 
 
                         } catch (Exception e) {
-                            // ignore errors
+                            System.out.println("eeee + "+e);
                         }
 
                         long tEndLoop = System.nanoTime();
                         totalLoopTime += (tEndLoop - tStartLoop);
 
-                        // --- ОТЧЕТ КАЖДЫЕ 100 ДОКУМЕНТОВ (чтобы видеть динамику) ---
-                        // Делим на кол-во запросов, чтобы считать именно документы
                         int docsDone = totalPairsProcessed;
                         if (docsDone > 0 && docsDone % 1000 == 0) {
                             printProfileStats(docsDone, totalPairsProcessed, totalExtractTime, totalLoopTime);
+                            System.out.println("процент записи  " +  ((float)stored / (float)((long) totalPairsProcessed * textQueries.size())));
 
                             // Сбрасываем таймеры, чтобы видеть скорость ТЕКУЩЕГО блока, а не среднюю с начала
                             // (Если хотите среднюю с начала - закомментируйте сброс)

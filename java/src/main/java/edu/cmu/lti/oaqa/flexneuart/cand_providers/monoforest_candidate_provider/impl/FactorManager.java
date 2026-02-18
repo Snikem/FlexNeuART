@@ -147,10 +147,12 @@ public class FactorManager {
                 }
                 currentIdx += dim;
             }
-//            int currentCalls = callsCount.incrementAndGet();
-//            if (currentCalls % REPORT_INTERVAL == 0) {
-//                printFactorPerformanceReport(currentCalls);
-//            }
+
+
+        }
+        int currentCalls = callsCount.incrementAndGet();
+        if (currentCalls % REPORT_INTERVAL == 0) {
+            printFactorPerformanceReport(currentCalls);
         }
         return allFeatures;
     }
