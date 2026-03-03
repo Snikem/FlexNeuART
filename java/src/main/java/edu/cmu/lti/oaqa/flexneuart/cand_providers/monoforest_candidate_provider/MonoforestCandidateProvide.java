@@ -33,6 +33,9 @@ public class MonoforestCandidateProvide extends CandidateProvider {
     private FactorManager fm;
     private DocFeatureStore docFeatureStore;
     private String mQueryFieldName;
+    private CatBoostInference catBoostModel;
+    private static final int EXPECTED_FEATURES = 24;
+    private static final String BINARIES_DIR = "/Volumes/Ex_Volume/msmarcoProcces/final_binaries/";
 
     @Override
     public String getName() {
@@ -58,6 +61,8 @@ public class MonoforestCandidateProvide extends CandidateProvider {
         //TODO: hardcode
         docFeatureStore = new DocFeatureStore("/Volumes/Ex_Volume/msmarcoProcces/doc_features.bin");
         logger.info("number of docs {}", docFeatureStore.getVectorSize());
+        catBoostModel = new CatBoostInference(modelPath);
+
     }
 
     @Override
@@ -68,72 +73,70 @@ public class MonoforestCandidateProvide extends CandidateProvider {
                                        DataEntryFields queryFields,
                                        int maxQty) throws Exception {
         String queryID = queryFields.mEntryId;
-        if (null == queryID) {
-            throw new Exception("Query id  is undefined for query #: " + queryNum);
-        }
-
-        ArrayList<CandidateEntry> resArr = new ArrayList<CandidateEntry>();
+        if (queryID == null) throw new Exception("Query id is undefined for query #: " + queryNum);
 
         String query = queryFields.getString(mQueryFieldName);
-        if (null == query) {
-            throw new Exception(
-                    String.format("Query (%s) is undefined for query # %d", mQueryFieldName, queryNum));
-        }
-
-        long numFound = 0;
+        if (query == null) throw new Exception("Query is undefined for query #: " + queryNum);
 
         if (query.isEmpty()) {
-            logger.warn("Ignoring empty query #: " + queryNum);
-        } else {
-            float[] queryFactor = fm.extractQueryFactors(query);
-
-            // Добавляем BufferedWriter в try-with-resources
-            try (
-                    MsMarcoRawReader reader = new MsMarcoRawReader(inputPath);
-                    CatBoostInference model = new CatBoostInference(modelPath);
-                    // Открываем файл в режиме append (true), чтобы не перезаписывать его каждым запросом
-                    BufferedWriter writer = new BufferedWriter(new FileWriter(debugPath, true))
-            ) {
-
-                MsMarcoRawReader.DocEntry doc;
-                int count = 0;
-
-                while ((doc = reader.getNext()) != null) {
-                    float[] docFactor = docFeatureStore.getFeatures(doc.id);
-                    float[] jointFactor = fm.extractJointFactors(query, doc.title, doc.fullText, doc.id);
-                    float[] totalVector = fm.mergeFactors(jointFactor, queryFactor, docFactor);
-
-                    float score = model.predictProbability(totalVector);
-
-                    resArr.add(new CandidateEntry(doc.id, score));
-
-                    // --- Логирование каждого 100-го документа ---
-                    if (count % 10000 == 0 ) {
-                        logger.info("Query:{}| DocID:{}| Score: {}", query, doc.id, score);
-                    }
-                    // Логируем в консоль реже, чтобы не спамить
-                    if (count % 10000 == 0) {
-                        logger.info("{} обработал ", count);
-                    }
-
-                    count++;
-                }
-
-                numFound = count; // Обновляем общее количество найденных документов
-                System.out.println("Done! Total docs: " + count);
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            logger.warn("Ignoring empty query #: {}", queryNum);
+            return new CandidateInfo(0, new CandidateEntry[0]);
         }
 
-        CandidateEntry[] results = resArr.toArray(new CandidateEntry[resArr.size()]);
+        java.nio.file.Path binPath = java.nio.file.Paths.get(BINARIES_DIR, queryID + ".bin");
+        if (!java.nio.file.Files.exists(binPath)) {
+            logger.warn("Бинарный файл не найден: {}", binPath);
+            return new CandidateInfo(0, new CandidateEntry[0]);
+        }
+
+        ArrayList<CandidateEntry> resArr = new ArrayList<>();
+        long numFound = 0;
+
+        // ⚡ ОПТИМИЗАЦИЯ ПАМЯТИ: Создаем массив один раз и переиспользуем его
+        float[] featureVector = new float[EXPECTED_FEATURES];
+
+        try (java.io.DataInputStream dis = new java.io.DataInputStream(
+                new java.io.BufferedInputStream(java.nio.file.Files.newInputStream(binPath), 65536))) {
+            // Увеличили буфер для ускорения I/O
+
+            try {
+                // В Java чтение DataInputStream до EOFException — это стандартный паттерн,
+                // если в начале файла не записано количество элементов.
+                while (true) {
+                    String fileQueryId = dis.readUTF();
+                    String docId = dis.readUTF();
+                    int totalFloats = dis.readInt();
+
+                    if (totalFloats != EXPECTED_FEATURES) {
+                        logger.error("Пропуск doc {}: ожидалось {} фичей, получено {}", docId, EXPECTED_FEATURES, totalFloats);
+                        // Пропускаем "битые" байты, чтобы не сломать чтение следующих документов
+                        for (int i = 0; i < totalFloats; i++) dis.readFloat();
+                        continue;
+                    }
+
+                    // ⚡ Записываем данные прямо в переиспользуемый массив
+                    for (int i = 0; i < EXPECTED_FEATURES; i++) {
+                        featureVector[i] = dis.readFloat();
+                    }
+
+                    // Отправляем в уже загруженную модель
+                    float score = catBoostModel.predictProbability(featureVector);
+                    resArr.add(new CandidateEntry(docId, score));
+                    numFound++;
+                }
+            } catch (java.io.EOFException e) {
+                // Конец файла. Обработка завершена штатно.
+            }
+        } catch (java.io.IOException e) {
+            logger.error("Ошибка ввода-вывода при чтении: " + queryID, e);
+        }
+
+        CandidateEntry[] results = resArr.toArray(new CandidateEntry[0]);
         Arrays.sort(results);
 
         if (results.length > maxQty) {
             results = Arrays.copyOf(results, maxQty);
         }
-        System.out.println("given candidate for query: " + query);
 
         return new CandidateInfo(numFound, results);
     }

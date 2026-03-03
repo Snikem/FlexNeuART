@@ -12,10 +12,10 @@ public class FeatureExtractorMain {
 
     // === НАСТРОЙКИ ПУТЕЙ ===
     // Папка с входными файлами (00..59)
-    private static final String INPUT_DIR = "/Volumes/Ex_Volume/msmarco/negative_qrels_with_queries";
+    private static final String INPUT_DIR = "/Volumes/Ex_Volume/msmarco/qrels_with_queries";
 
     // Куда сохранить итоговый файл
-    private static final String OUTPUT_FILE = "/Users/snikem/Desktop/new_dataset/train_negative.tsv";
+    private static final String OUTPUT_FILE = "/Users/snikem/Desktop/new_dataset/train_positive.tsv";
 
     public static void main(String[] args) {
         System.out.println("=== Feature Extraction Started ===");

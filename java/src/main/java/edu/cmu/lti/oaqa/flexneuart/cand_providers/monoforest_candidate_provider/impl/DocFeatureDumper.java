@@ -5,6 +5,7 @@ import org.json.JSONObject;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.zip.GZIPInputStream;
 
@@ -14,11 +15,20 @@ public class DocFeatureDumper {
     // Путь к папке, где лежат файлы msmarco_doc_00.gz ... msmarco_doc_59.gz
     private static final String INPUT_DIR = "/Volumes/Ex_Volume/msmarco/msmarco_v2_doc/";
 
-    // Куда сохранить результат
-    private static final String OUTPUT_BINARY_FILE = "/Volumes/Ex_Volume/msmarcoProcces/doc_features.bin";
+    // ДИРЕКТОРИЯ, куда сохраним 60 бинарных файлов
+    private static final String OUTPUT_DIR = "/Volumes/Ex_Volume/msmarcoProcces/doc_features_split/";
 
     public static void main(String[] args) {
-        System.out.println("=== Starting Feature Dumper from GZ JSONL ===");
+        System.out.println("=== Starting Feature Dumper (60 Split Files) ===");
+
+        // Убеждаемся, что выходная директория существует
+        try {
+            Files.createDirectories(Paths.get(OUTPUT_DIR));
+        } catch (IOException e) {
+            System.err.println("Failed to create output directory: " + OUTPUT_DIR);
+            e.printStackTrace();
+            return;
+        }
 
         // 1. Инициализация менеджера факторов
         System.out.println("Initializing FactorManager...");
@@ -26,98 +36,99 @@ public class DocFeatureDumper {
         int docFeatSize = manager.getDocFactorCount();
         System.out.println("Feature vector size: " + docFeatSize);
 
-        int totalDocsProcessed = 0;
-        long startTime = System.currentTimeMillis();
+        long globalStartTime = System.currentTimeMillis();
+        int globalDocsProcessed = 0;
 
-        try (DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(Paths.get(OUTPUT_BINARY_FILE))))) {
+        // 2. Цикл по 60 файлам
+        for (int i = 0; i < 60; i++) {
+            String inFileName = String.format("msmarco_doc_%02d.gz", i);
+            String outFileName = String.format("doc_features_%02d.bin", i);
 
-            // 2. Пишем заголовок (Header)
-            // Плейсхолдер для количества документов (запишем 0, потом обновим)
-            dos.writeInt(0);
-            // Размер вектора признаков
-            dos.writeInt(docFeatSize);
+            File inFile = new File(INPUT_DIR, inFileName);
+            File outFile = new File(OUTPUT_DIR, outFileName);
 
-            // 3. Цикл по 60 файлам
-            for (int i = 0; i < 60; i++) {
-                // Формируем имя файла: msmarco_doc_00.gz
-                String fileName = String.format("msmarco_doc_%02d.gz", i);
-                File file = new File(INPUT_DIR, fileName);
+            if (!inFile.exists()) {
+                System.err.println("Warning: File not found: " + inFile.getAbsolutePath());
+                continue;
+            }
 
-                if (!file.exists()) {
-                    System.err.println("Warning: File not found: " + file.getAbsolutePath());
-                    continue;
-                }
+            System.out.println("\nProcessing file (" + (i + 1) + "/60): " + inFileName);
 
-                System.out.println("Processing file (" + (i + 1) + "/60): " + fileName);
+            int localDocsProcessed = 0;
+            long fileStartTime = System.currentTimeMillis();
+
+            // Открываем поток записи ДЛЯ ТЕКУЩЕГО ФАЙЛА
+            try (DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(outFile.toPath())))) {
+
+                // Пишем заголовок (Header) для текущего бинарника
+                dos.writeInt(0); // Плейсхолдер для количества документов в ЭТОМ файле
+                dos.writeInt(docFeatSize); // Размер вектора признаков
 
                 // Читаем GZIP построчно
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(
-                        new GZIPInputStream(Files.newInputStream(file.toPath())), StandardCharsets.UTF_8))) {
+                        new GZIPInputStream(Files.newInputStream(inFile.toPath())), StandardCharsets.UTF_8))) {
 
                     String line;
                     while ((line = br.readLine()) != null) {
                         try {
-                            // 4. Парсинг JSON
+                            // Парсинг JSON
                             JSONObject json = new JSONObject(line);
 
                             String docId = json.getString("docid");
                             String title = json.optString("title", "");
-                            String headings = json.optString("headings", "");
                             String body = json.optString("body", "");
 
-                            // Собираем полный текст документа: Заголовки + Тело
-                            // Это важно, чтобы факторы учитывали весь контент
-
-
-                            // 5. Расчет факторов
-                            // ВАЖНО: Убедитесь, что в FactorManager есть метод extractDocFeatures(title, document, docId)
+                            // Расчет факторов
                             float[] feats = manager.extractDocFactors(title, body, docId);
 
-                            // 6. Запись в бинарник
+                            // Запись в бинарник
                             dos.writeUTF(docId);
                             for (float f : feats) {
                                 dos.writeFloat(f);
                             }
 
-                            totalDocsProcessed++;
-                            if (totalDocsProcessed % 10000 == 0) {
-                                System.out.print("\rTotal Docs: " + totalDocsProcessed);
+                            localDocsProcessed++;
+                            globalDocsProcessed++;
+
+                            if (localDocsProcessed % 10000 == 0) {
+                                System.out.print("\rDocs in current file: " + localDocsProcessed + " | Total: " + globalDocsProcessed);
                             }
 
                         } catch (Exception e) {
-                            // Ошибки парсинга одной строки не должны ломать всё
-                            // e.printStackTrace();
+                            // Игнорируем битые строки
                         }
                     }
                 } catch (IOException e) {
-                    System.err.println("Error reading file: " + fileName);
+                    System.err.println("\nError reading file: " + inFileName);
                     e.printStackTrace();
                 }
+
+                dos.flush();
+
+            } catch (IOException e) {
+                System.err.println("\nError writing to file: " + outFileName);
+                e.printStackTrace();
             }
 
-            // Сбрасываем буферы
-            dos.flush();
+            // 3. ОБНОВЛЕНИЕ ЗАГОЛОВКА ТЕКУЩЕГО ФАЙЛА
+            System.out.println("\nPatching header for " + outFileName + " with count: " + localDocsProcessed);
+            try (RandomAccessFile raf = new RandomAccessFile(outFile, "rw")) {
+                raf.seek(0); // Встаем в самое начало файла
+                raf.writeInt(localDocsProcessed); // Перезаписываем плейсхолдер
+            } catch (IOException e) {
+                System.err.println("Error patching header for " + outFileName);
+                e.printStackTrace();
+            }
 
-        } catch (IOException e) {
-            e.printStackTrace();
-            return;
+            long fileEndTime = System.currentTimeMillis();
+            System.out.println("Finished " + inFileName + " in " + (fileEndTime - fileStartTime) / 1000 + " sec.");
         }
 
-        System.out.println("\n\nAll files processed. Total docs: " + totalDocsProcessed);
-
-        // 7. ОБНОВЛЕНИЕ ЗАГОЛОВКА
-        // Теперь мы знаем точное количество документов, нужно вернуться в начало файла и записать его.
-        System.out.println("Patching file header with total count...");
-        try (RandomAccessFile raf = new RandomAccessFile(OUTPUT_BINARY_FILE, "rw")) {
-            raf.seek(0); // Встаем в самое начало
-            raf.writeInt(totalDocsProcessed); // Перезаписываем первые 4 байта (плейсхолдер)
-        } catch (IOException e) {
-            System.err.println("Error patching header!");
-            e.printStackTrace();
-        }
-
-        long endTime = System.currentTimeMillis();
-        System.out.println("Done in " + (endTime - startTime) / 1000 + " sec.");
-        System.out.println("Output: " + OUTPUT_BINARY_FILE);
+        long globalEndTime = System.currentTimeMillis();
+        System.out.println("\n==================================================");
+        System.out.println("✅ All 60 files processed successfully!");
+        System.out.println("Total docs processed across all files: " + globalDocsProcessed);
+        System.out.println("Total time: " + (globalEndTime - globalStartTime) / 1000 + " sec.");
+        System.out.println("Output directory: " + OUTPUT_DIR);
     }
 }

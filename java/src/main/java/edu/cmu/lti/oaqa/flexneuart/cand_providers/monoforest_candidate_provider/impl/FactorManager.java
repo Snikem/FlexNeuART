@@ -60,12 +60,12 @@ public class FactorManager {
         addQueryFactor(new QueryFrequencyWords());
 
         addJointFactor(new JointBM25AndTFIDF());
-
-        addJointFactor(new JointTitleMatchCount());
-
-        addJointFactor(new JointQueryTfSum());
-
-        addJointFactor(new JointExactMatchCount());
+//
+//        addJointFactor(new JointTitleMatchCount());
+//
+//        addJointFactor(new JointQueryTfSum());
+//
+//        addJointFactor(new JointExactMatchCount());
 
 
     }
