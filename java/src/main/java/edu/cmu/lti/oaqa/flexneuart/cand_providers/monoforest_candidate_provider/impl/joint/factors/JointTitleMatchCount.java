@@ -19,6 +19,7 @@ public class JointTitleMatchCount extends JointFactor {
     public float[] calculateScore(String query, String title, String document, String doc_id) {
         // 1. Токенизация в множества (Set)
         Set<String> qWords = tokenizeSet(query);
+        int len_query = qWords.size();
         Set<String> dWords = tokenizeSet(title);
 
         // 2. Находим пересечение (intersection)
@@ -26,7 +27,7 @@ public class JointTitleMatchCount extends JointFactor {
         qWords.retainAll(dWords);
 
         // 3. Возвращаем размер пересечения
-        return new float[] { (float) qWords.size() };
+        return new float[] { (float)  qWords.size() / len_query};
     }
 
     @Override
@@ -65,7 +66,7 @@ public class JointTitleMatchCount extends JointFactor {
 
     @Override
     public String getDescription() {
-        return "Количество одинаковых уникальных слов в документе и запросе";
+        return "Количество одинаковых уникальных слов в заголовке документа и запросе деленное на количество слов в запросе";
     }
 
     @Override

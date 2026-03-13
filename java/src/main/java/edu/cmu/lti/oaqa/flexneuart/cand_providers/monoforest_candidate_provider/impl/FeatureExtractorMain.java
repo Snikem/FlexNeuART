@@ -15,7 +15,7 @@ public class FeatureExtractorMain {
     private static final String INPUT_DIR = "/Volumes/Ex_Volume/msmarco/qrels_with_queries";
 
     // Куда сохранить итоговый файл
-    private static final String OUTPUT_FILE = "/Users/snikem/Desktop/new_dataset/train_positive.tsv";
+    private static final String OUTPUT_FILE = "/Users/snikem/Desktop/new_dataset2/train_positive.tsv";
 
     public static void main(String[] args) {
         System.out.println("=== Feature Extraction Started ===");
@@ -55,6 +55,7 @@ public class FeatureExtractorMain {
                             String[] parts = line.split("\t");
 
                             if (parts.length < 5) {
+                                System.out.println("PIZDA");
                                 continue; // Битая строка
                             }
 

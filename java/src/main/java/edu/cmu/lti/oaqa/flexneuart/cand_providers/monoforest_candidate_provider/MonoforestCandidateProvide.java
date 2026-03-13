@@ -1,6 +1,8 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.io.*;
 import java.nio.file.Paths;
@@ -12,6 +14,9 @@ import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.DocFeatureStore;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.FactorManager;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.MsMarcoRawReader;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,14 +39,13 @@ public class MonoforestCandidateProvide extends CandidateProvider {
     private DocFeatureStore docFeatureStore;
     private String mQueryFieldName;
     private CatBoostInference catBoostModel;
-    private static final int EXPECTED_FEATURES = 24;
-    private static final String BINARIES_DIR = "/Volumes/Ex_Volume/msmarcoProcces/final_binaries/";
+    private static final int EXPECTED_FEATURES = 27;
+    private static final String BINARIES_DIR = "/Volumes/Ex_Volume/msmarcoProcces/final2/";
 
     @Override
     public String getName() {
         return this.getClass().getName();
     }
-
     /**
      * Constructor.
      * @param addConf additional/optional configuration: can be null
@@ -75,57 +79,49 @@ public class MonoforestCandidateProvide extends CandidateProvider {
         String queryID = queryFields.mEntryId;
         if (queryID == null) throw new Exception("Query id is undefined for query #: " + queryNum);
 
-        String query = queryFields.getString(mQueryFieldName);
-        if (query == null) throw new Exception("Query is undefined for query #: " + queryNum);
-
-        if (query.isEmpty()) {
-            logger.warn("Ignoring empty query #: {}", queryNum);
-            return new CandidateInfo(0, new CandidateEntry[0]);
-        }
-
-        java.nio.file.Path binPath = java.nio.file.Paths.get(BINARIES_DIR, queryID + ".bin");
-        if (!java.nio.file.Files.exists(binPath)) {
-            logger.warn("Бинарный файл не найден: {}", binPath);
+        Path jsonPath = Paths.get(BINARIES_DIR, queryID + ".json");
+        if (!Files.exists(jsonPath)) {
+            logger.warn("JSON файл не найден: {}", jsonPath);
             return new CandidateInfo(0, new CandidateEntry[0]);
         }
 
         ArrayList<CandidateEntry> resArr = new ArrayList<>();
         long numFound = 0;
-
-        // ⚡ ОПТИМИЗАЦИЯ ПАМЯТИ: Создаем массив один раз и переиспользуем его
         float[] featureVector = new float[EXPECTED_FEATURES];
 
-        try (java.io.DataInputStream dis = new java.io.DataInputStream(
-                new java.io.BufferedInputStream(java.nio.file.Files.newInputStream(binPath), 65536))) {
-            // Увеличили буфер для ускорения I/O
+        try (BufferedReader br = Files.newBufferedReader(jsonPath, StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
 
-            try {
-                // В Java чтение DataInputStream до EOFException — это стандартный паттерн,
-                // если в начале файла не записано количество элементов.
-                while (true) {
-                    String fileQueryId = dis.readUTF();
-                    String docId = dis.readUTF();
-                    int totalFloats = dis.readInt();
+                try {
+                    // Создаем JSONObject прямо из строки
+                    JSONObject jsonObject = new JSONObject(line);
 
-                    if (totalFloats != EXPECTED_FEATURES) {
-                        logger.error("Пропуск doc {}: ожидалось {} фичей, получено {}", docId, EXPECTED_FEATURES, totalFloats);
-                        // Пропускаем "битые" байты, чтобы не сломать чтение следующих документов
-                        for (int i = 0; i < totalFloats; i++) dis.readFloat();
+                    String docId = jsonObject.getString("doc_id");
+                    JSONArray featuresArray = jsonObject.optJSONArray("features");
+
+                    // В org.json для размера массива используется метод length()
+                    if (featuresArray == null || featuresArray.length() != EXPECTED_FEATURES) {
+                        int got = (featuresArray != null) ? featuresArray.length() : 0;
+                        logger.error("Пропуск doc {}: ожидалось {} фичей, получено {}", docId, EXPECTED_FEATURES, got);
                         continue;
                     }
 
-                    // ⚡ Записываем данные прямо в переиспользуемый массив
+                    // Заполняем массив
                     for (int i = 0; i < EXPECTED_FEATURES; i++) {
-                        featureVector[i] = dis.readFloat();
+                        // getDouble возвращает double, кастим во float для модели
+                        featureVector[i] = (float) featuresArray.getDouble(i);
                     }
 
-                    // Отправляем в уже загруженную модель
                     float score = catBoostModel.predictProbability(featureVector);
                     resArr.add(new CandidateEntry(docId, score));
                     numFound++;
+
+                } catch (JSONException e) {
+                    logger.error("Ошибка парсинга JSON в строке: " + line, e);
                 }
-            } catch (java.io.EOFException e) {
-                // Конец файла. Обработка завершена штатно.
             }
         } catch (java.io.IOException e) {
             logger.error("Ошибка ввода-вывода при чтении: " + queryID, e);
@@ -144,65 +140,36 @@ public class MonoforestCandidateProvide extends CandidateProvider {
     public static final String debugDocFile = "/Volumes/Ex_Volume/msmarcoProcces/target_doc_body.txt";
 
     public static void main(String[] args) {
-        System.out.println("==================================================");
-        System.out.println("STARTING SINGLE DOC TEST (FROM FILE)");
-        System.out.println("==================================================");
-
-        // Входные данные
-        String targetDocId = "msmarco_doc_16_2049958358";
-        String testQuery = "androgen receptor define";
-        String docTitle = "Test Title (can be empty if unknown)"; // Если знаете заголовок, впишите, это влияет на фичи
-
         try {
-            // 1. Читаем текст документа из файла
-            System.out.println("1. Reading document text from: " + debugDocFile);
-            String docBody = new String(Files.readAllBytes(Paths.get(debugDocFile)));
 
-            System.out.println("   Text length: " + docBody.length() + " chars");
-            if (docBody.length() > 100) System.out.println("   Snippet: " + docBody.substring(0, 100) + "...");
+            MonoforestCandidateProvide provider = new MonoforestCandidateProvide("local_test", null);
 
-            // 2. Инициализация
-            System.out.println("2. Initializing Provider...");
-            MonoforestCandidateProvide provider = new MonoforestCandidateProvide("dummy", null);
+            String queryId = "2";
 
-            System.out.println("3. Loading Model...");
-            try (CatBoostInference model = new CatBoostInference(modelPath)) {
+            // Для работы провайдера также требуется текст запроса (хотя ваш код сейчас читает из бинарника)
+            // Создаем объект полей запроса
+            DataEntryFields queryFields = new DataEntryFields(queryId);
 
-                // 4. Расчет факторов
-                System.out.println("4. Calculating features...");
+            System.out.println("Поиск кандидатов для запроса: " + queryId + "...");
 
-                // A. Query Factors
-                float[] queryFactors = provider.fm.extractQueryFactors(testQuery);
-                System.out.println("   Query Factors: " + Arrays.toString(queryFactors));
+            // 4. Получение кандидатов (запрашиваем топ-10)
+            int maxQty = 10;
+            CandidateInfo info = provider.getCandidates(0, queryFields, maxQty);
 
-                // B. Doc Factors (из базы pre-computed)
-                float[] docFactors = provider.docFeatureStore.getFeatures(targetDocId);
-                if (docFactors == null) {
-                    System.err.println("WARNING: Doc features not found in .bin file for ID: " + targetDocId);
-                    System.err.println("Using zero vector for doc features.");
-                    docFactors = new float[provider.docFeatureStore.getVectorSize()];
+            // 5. Вывод результатов
+            System.out.println("\n--- Топ 10 документов ---");
+            if (info.mEntries.length == 0) {
+                System.out.println("Документы не найдены или бинарный файл отсутствует.");
+            } else {
+                for (int i = 0; i < info.mEntries.length; i++) {
+                    CandidateEntry entry = info.mEntries[i];
+                    System.out.printf("%d. DocID: %s | Score: %.6f%n",
+                            (i + 1), entry.mDocId, entry.mScore);
                 }
-                System.out.println("   Doc Factors: " + Arrays.toString(docFactors));
-
-                // C. Joint Factors (самое важное - тут работает текст из файла)
-                float[] jointFactors = provider.fm.extractJointFactors(testQuery, docTitle, docBody, targetDocId);
-                System.out.println("   Joint Factors: " + Arrays.toString(jointFactors));
-
-                // 5. Слияние
-                float[] totalVector = provider.fm.mergeFactors(jointFactors, queryFactors, docFactors);
-                System.out.println("   TOTAL VECTOR: " + Arrays.toString(totalVector));
-
-                // 6. ПРЕДСКАЗАНИЕ
-                float score = model.predictProbability(totalVector);
-
-                System.out.println("\n--------------------------------------------------");
-                System.out.println(">>> PREDICTED SCORE: " + String.format("%.6f", score) + " <<<");
-                System.out.println("--------------------------------------------------");
             }
 
-        } catch (IOException e) {
-            System.err.println("ERROR READING FILE: " + e.getMessage());
-            e.printStackTrace();
+            System.out.println("\nВсего обработано документов в файле: " + info.mNumFound);
+
         } catch (Exception e) {
             e.printStackTrace();
         }

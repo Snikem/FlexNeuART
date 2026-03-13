@@ -20,13 +20,13 @@ public class JointExactMatchCount extends JointFactor {
         // 1. Токенизация в множества (Set)
         Set<String> qWords = tokenizeSet(query);
         Set<String> dWords = tokenizeSet(document);
-
+        int len_query = qWords.size();
         // 2. Находим пересечение (intersection)
         // retainAll оставляет в qWords только те элементы, которые есть в dWords
         qWords.retainAll(dWords);
 
         // 3. Возвращаем размер пересечения
-        return new float[] { (float) qWords.size() };
+        return new float[] { (float) qWords.size() / len_query };
     }
 
     @Override
@@ -65,7 +65,7 @@ public class JointExactMatchCount extends JointFactor {
 
     @Override
     public String getDescription() {
-        return "Количество одинаковых уникальных слов в документе и запросе";
+        return "Количество одинаковых уникальных слов в документе и запросе деленное на количество слов в запросе";
     }
 
     @Override

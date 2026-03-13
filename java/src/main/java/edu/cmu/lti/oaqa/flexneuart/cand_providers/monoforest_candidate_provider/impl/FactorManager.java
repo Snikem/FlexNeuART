@@ -60,12 +60,12 @@ public class FactorManager {
         addQueryFactor(new QueryFrequencyWords());
 
         addJointFactor(new JointBM25AndTFIDF());
-//
-//        addJointFactor(new JointTitleMatchCount());
-//
-//        addJointFactor(new JointQueryTfSum());
-//
-//        addJointFactor(new JointExactMatchCount());
+
+        addJointFactor(new JointTitleMatchCount());
+
+        addJointFactor(new JointQueryTfSum());
+
+        addJointFactor(new JointExactMatchCount());
 
 
     }
@@ -237,7 +237,19 @@ public class FactorManager {
     }
 
 
+    public void printAllNames() {
+        for (JointFactor f : jointFactors) {
+            System.out.println("Name: " + f.getName() + "     " + f.getDescription() + "   количество возвразаемых числе " + f.getFeatureQty() );
+        }
 
+        for (QueryFactor f : queryFactors) {
+            System.out.println("Name: " + f.getName() + "     " + f.getDescription() + "   количество возвразаемых числе " + f.getFeatureQty() );
+        }
+
+        for (DocumentFactor f : docFactors) {
+            System.out.println("Name: " + f.getName() + "     " + f.getDescription() + "   количество возвразаемых числе " + f.getFeatureQty() );
+        }
+    }
     // Главный метод расчета
     public float[] extractAll(String queryText, String title, String document, String doc_id) {
         float[] allFeatures = new float[totalFeatureCount];
