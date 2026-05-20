@@ -2,6 +2,7 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.DocumentFactor;
+import org.apache.lucene.search.Query;
 
 public class DocumentQuantityWords extends DocumentFactor {
 
@@ -40,5 +41,9 @@ public class DocumentQuantityWords extends DocumentFactor {
         }
         // Делим по пробельным символам (пробел, таб, перенос строки)
         return text.trim().split("\\s+").length;
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

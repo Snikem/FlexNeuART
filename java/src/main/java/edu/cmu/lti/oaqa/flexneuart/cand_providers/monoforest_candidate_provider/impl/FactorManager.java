@@ -59,6 +59,8 @@ public class FactorManager {
 
         addQueryFactor(new QueryFrequencyWords());
 
+        addJointFactor(new JointRankBM25());
+
         addJointFactor(new JointBM25AndTFIDF());
 
         addJointFactor(new JointTitleMatchCount());
@@ -66,6 +68,10 @@ public class FactorManager {
         addJointFactor(new JointQueryTfSum());
 
         addJointFactor(new JointExactMatchCount());
+
+        //addJointFactor(new JointBigramTrigram());
+
+        addJointFactor(new JointUnorderedWindow());
 
 
     }

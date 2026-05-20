@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.query.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.query.QueryFactor;
+import org.apache.lucene.search.Query;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -73,5 +74,9 @@ public class QueryQuantityNonDictionaryWords extends QueryFactor {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

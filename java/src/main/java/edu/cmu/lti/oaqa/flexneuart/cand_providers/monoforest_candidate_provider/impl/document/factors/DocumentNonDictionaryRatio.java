@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.DocumentFactor;
+import org.apache.lucene.search.Query;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -98,5 +99,9 @@ public class DocumentNonDictionaryRatio extends DocumentFactor {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

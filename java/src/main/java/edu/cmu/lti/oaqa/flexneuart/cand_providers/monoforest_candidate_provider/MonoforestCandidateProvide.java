@@ -39,7 +39,7 @@ public class MonoforestCandidateProvide extends CandidateProvider {
     private DocFeatureStore docFeatureStore;
     private String mQueryFieldName;
     private CatBoostInference catBoostModel;
-    private static final int EXPECTED_FEATURES = 27;
+    private static final int EXPECTED_FEATURES = 32;
     private static final String BINARIES_DIR = "/Volumes/Ex_Volume/msmarcoProcces/final2/";
 
     @Override
@@ -87,6 +87,7 @@ public class MonoforestCandidateProvide extends CandidateProvider {
 
         ArrayList<CandidateEntry> resArr = new ArrayList<>();
         long numFound = 0;
+        // Новый размер вектора для модели
         float[] featureVector = new float[EXPECTED_FEATURES];
 
         try (BufferedReader br = Files.newBufferedReader(jsonPath, StandardCharsets.UTF_8)) {
@@ -109,13 +110,14 @@ public class MonoforestCandidateProvide extends CandidateProvider {
                         continue;
                     }
 
-                    // Заполняем массив
-                    for (int i = 0; i < EXPECTED_FEATURES; i++) {
-                        // getDouble возвращает double, кастим во float для модели
-                        featureVector[i] = (float) featuresArray.getDouble(i);
-                    }
 
-                    float score = catBoostModel.predictProbability(featureVector);
+                    int vectorIndex = 0;
+
+                    for (int i = 0; i < EXPECTED_FEATURES; i++) {
+                        featureVector[vectorIndex] = (float) featuresArray.getDouble(i);
+                        vectorIndex++;
+                    }
+                    float score = catBoostModel.predictProbability(featureVector) * 100000;
                     resArr.add(new CandidateEntry(docId, score));
                     numFound++;
 
@@ -127,7 +129,7 @@ public class MonoforestCandidateProvide extends CandidateProvider {
             logger.error("Ошибка ввода-вывода при чтении: " + queryID, e);
         }
 
-        CandidateEntry[] results = resArr.toArray(new CandidateEntry[0]);
+        CandidateEntry[] results = resArr.toArray(new CandidateEntry[resArr.size()]);
         Arrays.sort(results);
 
         if (results.length > maxQty) {
@@ -139,12 +141,11 @@ public class MonoforestCandidateProvide extends CandidateProvider {
     //TODO: удалить
     public static final String debugDocFile = "/Volumes/Ex_Volume/msmarcoProcces/target_doc_body.txt";
 
-    public static void main(String[] args) {
+    public int testSearch(String queryText, String queryId, String relevantId, int maxQty) {
         try {
 
             MonoforestCandidateProvide provider = new MonoforestCandidateProvide("local_test", null);
 
-            String queryId = "2";
 
             // Для работы провайдера также требуется текст запроса (хотя ваш код сейчас читает из бинарника)
             // Создаем объект полей запроса
@@ -153,7 +154,41 @@ public class MonoforestCandidateProvide extends CandidateProvider {
             System.out.println("Поиск кандидатов для запроса: " + queryId + "...");
 
             // 4. Получение кандидатов (запрашиваем топ-10)
-            int maxQty = 10;
+            CandidateInfo info = provider.getCandidates(0, queryFields, maxQty);
+
+            if (info.mEntries.length == 0) {
+                System.out.println("Документы не найдены или бинарный файл отсутствует.");
+            } else {
+                for (int i = 0; i < info.mEntries.length; i++) {
+                    CandidateEntry entry = info.mEntries[i];
+                        if( entry.mDocId.equals(relevantId) ){
+                            return i + 1;
+                        }
+                }
+            }
+
+            System.out.println("\nВсего обработано документов в файле: " + info.mNumFound);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 3000;
+    }
+    public static void main(String[] args) {
+        try {
+
+            MonoforestCandidateProvide provider = new MonoforestCandidateProvide("local_test", null);
+
+            String queryId = "1051372";
+
+            // Для работы провайдера также требуется текст запроса (хотя ваш код сейчас читает из бинарника)
+            // Создаем объект полей запроса
+            DataEntryFields queryFields = new DataEntryFields(queryId);
+
+            System.out.println("Поиск кандидатов для запроса: " + queryId + "...");
+
+            // 4. Получение кандидатов (запрашиваем топ-10)
+            int maxQty = 500;
             CandidateInfo info = provider.getCandidates(0, queryFields, maxQty);
 
             // 5. Вывод результатов

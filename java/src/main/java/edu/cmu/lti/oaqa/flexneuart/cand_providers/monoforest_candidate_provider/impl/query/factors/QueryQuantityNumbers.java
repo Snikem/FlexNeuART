@@ -1,6 +1,8 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.query.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.query.QueryFactor;
+import org.apache.lucene.search.Query;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,5 +48,9 @@ public class QueryQuantityNumbers extends QueryFactor {
             count++;
         }
         return count;
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

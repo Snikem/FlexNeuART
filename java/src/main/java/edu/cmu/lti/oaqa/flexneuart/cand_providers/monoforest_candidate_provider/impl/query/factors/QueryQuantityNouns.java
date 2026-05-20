@@ -4,6 +4,7 @@ import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.
 import opennlp.tools.postag.POSModel;
 import opennlp.tools.postag.POSTaggerME;
 import opennlp.tools.tokenize.SimpleTokenizer;
+import org.apache.lucene.search.Query;
 
 import java.io.InputStream;
 
@@ -87,5 +88,9 @@ public class QueryQuantityNouns extends QueryFactor {
         }
 
         return new float[] { (float) nounCount };
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

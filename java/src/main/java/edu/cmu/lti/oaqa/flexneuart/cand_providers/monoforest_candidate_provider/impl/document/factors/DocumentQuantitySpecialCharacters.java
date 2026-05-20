@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.DocumentFactor;
+import org.apache.lucene.search.Query;
 
 public class DocumentQuantitySpecialCharacters extends DocumentFactor {
 
@@ -33,5 +34,9 @@ public class DocumentQuantitySpecialCharacters extends DocumentFactor {
 
     @Override
     public void prepare() {
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.DocumentFactor;
+import org.apache.lucene.search.Query;
 
 public class DocumentQuantityParagraphs extends DocumentFactor {
 
@@ -44,5 +45,9 @@ public class DocumentQuantityParagraphs extends DocumentFactor {
     @Override
     public void prepare() {
         // Нет предварительной подготовки
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

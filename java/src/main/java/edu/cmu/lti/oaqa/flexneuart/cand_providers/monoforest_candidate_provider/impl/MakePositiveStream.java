@@ -1,5 +1,8 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl;
 
+
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.factors.JointSmarterBigramTrigram;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.factors.JointUnorderedWindow;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 
@@ -8,32 +11,31 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-public class FeatureExtractorMain {
+public class MakePositiveStream {
 
     // === НАСТРОЙКИ ПУТЕЙ ===
     // Папка с входными файлами (00..59)
-    private static final String INPUT_DIR = "/Volumes/Ex_Volume/msmarco/qrels_with_queries";
+    private static final String INPUT_DIR = "/Volumes/Ex_Volume/DatasetStream/onlyPositive/qrels_with_queries_train";
 
-    // Куда сохранить итоговый файл
-    private static final String OUTPUT_FILE = "/Users/snikem/Desktop/new_dataset2/train_positive.tsv";
-
-    public static void main(String[] args) {
+    public void getStream(float multiplicator, String output) {
         System.out.println("=== Feature Extraction Started ===");
 
         // 1. Инициализация менеджера (загрузка словарей, Lucene и т.д.)
         // Это делается один раз перед циклом!
         System.out.println("Initializing FactorManager...");
-        FactorManager manager = new FactorManager();
-        System.out.println("FactorManager ready. Total features: " + manager.getTotalFeatureCount());
+        FactorManager fm = new FactorManager();
+
+
+        System.out.println("FactorManager ready. Total features: " + fm.getTotalFeatureCount());
 
         int totalProcessed = 0;
         int errorCount = 0;
-
+        int counter = (int)(60 * multiplicator);
         // Открываем файл для записи результатов
-        try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(OUTPUT_FILE)))) {
+        try (PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter(output)))) {
 
             // 2. Цикл по 60 файлам (от 00 до 59)
-            for (int i = 0; i < 60; i++) {
+            for (int i = 0; i < counter; i++) {
                 // Формируем имя файла: qrels_doc_00_with_docs.tsv
                 String fileName = String.format("qrels_doc_%02d_with_docs.tsv", i);
                 File inputFile = new File(INPUT_DIR, fileName);
@@ -69,14 +71,14 @@ public class FeatureExtractorMain {
                             String body = json.optString("body", "");
                             // Можно склеить headings и body, если нужно
                             String headings = json.optString("headings", "");
-                            String fullDocumentText = headings + "\n" + body;
 
                             // 4. Расчет факторов
-                            float[] features = manager.extractAll(queryText, title, fullDocumentText, docId);
+                            float[] features = fm.extractAll(queryText,title,body,docId);
 
                             // 5. Запись в выходной файл
                             writer.print(label);
                             writer.print("\t");
+                            writer.print(queryText);
                             writer.print("\t");
                             writer.print(docId);
 
@@ -105,14 +107,14 @@ public class FeatureExtractorMain {
             }
 
         } catch (IOException e) {
-            System.err.println("Error creating output file: " + OUTPUT_FILE);
+            System.err.println("Error creating output file: " + output);
             e.printStackTrace();
         }
 
         System.out.println("\n=== Done ===");
         System.out.println("Total lines processed: " + totalProcessed);
         System.out.println("Errors/Skipped lines: " + errorCount);
-        System.out.println("Output saved to: " + OUTPUT_FILE);
+        System.out.println("Output saved to: " + output);
     }
 
     @NotNull

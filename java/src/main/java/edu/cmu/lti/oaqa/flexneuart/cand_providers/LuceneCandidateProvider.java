@@ -176,6 +176,126 @@ public class LuceneCandidateProvider extends CandidateProvider {
         
     return new CandidateInfo(numFound, results);
   }
+    public int testSearch(String queryText, String queryId, String relevantId, int maxQty) {
+        try {
+            // 1. Путь к индексу Lucene (из твоего файла bm25.json)
+            String indexDirName = "/Volumes/Ex_Volume/msmarcoProcces/lucene_index";
+
+            // Путь к файлу с параметрами BM25.
+            // Замени на абсолютный путь к твоему bm25_params.json
+            String configPath = "/Volumes/Ex_Volume/msmarcoProcces/exper_desc.best/bm25_params.json";
+
+            // 2. Инициализируем конфиг
+            File configFile = new File(configPath);
+            RestrictedJsonConfig addConf = null;
+            if (configFile.exists()) {
+                addConf = RestrictedJsonConfig.readConfig("bm25_config",configPath);
+            } else {
+                System.out.println("Файл конфигурации не найден, будут использованы параметры по умолчанию.");
+            }
+
+            // 3. Создаем провайдер
+            LuceneCandidateProvider provider = new LuceneCandidateProvider(indexDirName, addConf);
+
+            DataEntryFields queryFields = new DataEntryFields(queryId);
+
+            // ВАЖНО: имя поля должно совпадать с query_field_name в bm25_params.json.
+            // У тебя там указано "text_unlemm".
+            String fieldName = (addConf != null)
+                    ? addConf.getParam(CommonParams.QUERY_FIELD_NAME, Const.DEFAULT_QUERY_TEXT_FIELD_NAME)
+                    : Const.DEFAULT_QUERY_TEXT_FIELD_NAME;
+
+            java.lang.reflect.Method setStringMethod = DataEntryFields.class.getDeclaredMethod("setString", String.class, String.class);
+            setStringMethod.setAccessible(true); // Снимаем ограничение доступа
+            setStringMethod.invoke(queryFields, fieldName, queryText);
+
+
+            // 5. Запрашиваем кандидатов (например, просим топ-100)
+            CandidateInfo info = provider.getCandidates(0, queryFields, maxQty);
+
+            // 6. Выводим результаты (покажем только топ-10)
+            System.out.println("\n--- Топ 10 найденных документов ---");
+            if (info.mEntries.length == 0) {
+                System.out.println("Документы не найдены. Проверь текст запроса или корректность индекса Lucene.");
+            } else {
+                int limit = Math.min(maxQty, info.mEntries.length);
+                for (int i = 0; i < limit; i++) {
+                    CandidateEntry entry = info.mEntries[i];
+                    if( entry.mDocId.equals(relevantId) ){
+                        return i + 1;
+                    }
+                }
+            }
+
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 3000;
+    }
+    public static void main(String[] args) {
+        try {
+            // 1. Путь к индексу Lucene (из твоего файла bm25.json)
+            String indexDirName = "/Volumes/Ex_Volume/msmarcoProcces/lucene_index";
+
+            // Путь к файлу с параметрами BM25.
+            // Замени на абсолютный путь к твоему bm25_params.json
+            String configPath = "/Volumes/Ex_Volume/msmarcoProcces/exper_desc.best/bm25_params.json";
+
+            // 2. Инициализируем конфиг
+            File configFile = new File(configPath);
+            RestrictedJsonConfig addConf = null;
+            if (configFile.exists()) {
+                addConf = RestrictedJsonConfig.readConfig("bm25_config",configPath);
+                System.out.println("Конфигурация BM25 успешно загружена.");
+            } else {
+                System.out.println("Файл конфигурации не найден, будут использованы параметры по умолчанию.");
+            }
+
+            // 3. Создаем провайдер
+            LuceneCandidateProvider provider = new LuceneCandidateProvider(indexDirName, addConf);
+
+            // 4. Подготавливаем запрос
+            String queryId = "786674";
+            String queryText = "what is prime rate in canada"; // <-- ЗАМЕНИ на реальный текст твоего запроса
+
+            DataEntryFields queryFields = new DataEntryFields(queryId);
+
+            // ВАЖНО: имя поля должно совпадать с query_field_name в bm25_params.json.
+            // У тебя там указано "text_unlemm".
+            String fieldName = (addConf != null)
+                    ? addConf.getParam(CommonParams.QUERY_FIELD_NAME, Const.DEFAULT_QUERY_TEXT_FIELD_NAME)
+                    : Const.DEFAULT_QUERY_TEXT_FIELD_NAME;
+
+            java.lang.reflect.Method setStringMethod = DataEntryFields.class.getDeclaredMethod("setString", String.class, String.class);
+            setStringMethod.setAccessible(true); // Снимаем ограничение доступа
+            setStringMethod.invoke(queryFields, fieldName, queryText);
+
+            System.out.println("Поиск кандидатов для запроса ID: " + queryId + " | Текст: '" + queryText + "'...");
+
+            // 5. Запрашиваем кандидатов (например, просим топ-100)
+            int maxQty = 1000;
+            CandidateInfo info = provider.getCandidates(0, queryFields, maxQty);
+
+            // 6. Выводим результаты (покажем только топ-10)
+            System.out.println("\n--- Топ 10 найденных документов ---");
+            if (info.mEntries.length == 0) {
+                System.out.println("Документы не найдены. Проверь текст запроса или корректность индекса Lucene.");
+            } else {
+                int limit = Math.min(maxQty, info.mEntries.length);
+                for (int i = 0; i < limit; i++) {
+                    CandidateEntry entry = info.mEntries[i];
+                    System.out.printf("%d. DocID: %s | Score: %.6f%n",
+                            (i + 1), entry.mDocId, entry.mScore);
+                }
+            }
+
+            System.out.println("\nВсего документов найдено в индексе по запросу: " + info.mNumFound);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
   
   private IndexReader   mReader = null;
   private IndexSearcher mSearcher = null;

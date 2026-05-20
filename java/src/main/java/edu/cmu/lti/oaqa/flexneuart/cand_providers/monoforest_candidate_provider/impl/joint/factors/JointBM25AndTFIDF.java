@@ -171,4 +171,8 @@ public class JointBM25AndTFIDF extends JointFactor {
         }
         return hits.scoreDocs[0].doc;
     }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
+    }
 }

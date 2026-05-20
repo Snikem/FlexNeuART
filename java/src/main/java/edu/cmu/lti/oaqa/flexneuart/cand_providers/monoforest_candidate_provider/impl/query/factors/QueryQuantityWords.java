@@ -2,6 +2,8 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.query.QueryFactor;
+import org.apache.lucene.search.Query;
+
 import java.util.Map;
 
 public class QueryQuantityWords extends QueryFactor {
@@ -27,7 +29,7 @@ public class QueryQuantityWords extends QueryFactor {
 
     @Override
     public String getDescription() {
-        return "Считает длину слов в запросе";
+        return "Считает количество слов в запросе";
     }
 
     @Override
@@ -41,5 +43,9 @@ public class QueryQuantityWords extends QueryFactor {
         }
         // Делим по пробельным символам (пробел, таб, перенос строки)
         return text.trim().split("\\s+").length;
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

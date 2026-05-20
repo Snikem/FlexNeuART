@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.JointFactor;
+import org.apache.lucene.search.Query;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -103,5 +104,9 @@ public class JointQueryTfSum extends JointFactor {
         String lower = text.toLowerCase();
         String cleaned = TOKENIZE_PATTERN.matcher(lower).replaceAll(" ");
         return cleaned.trim().split("\\s+");
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

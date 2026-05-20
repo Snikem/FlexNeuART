@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.DocumentFactor;
+import org.apache.lucene.search.Query;
 
 public class DocumentQuantityVowels extends DocumentFactor {
 
@@ -24,7 +25,7 @@ public class DocumentQuantityVowels extends DocumentFactor {
 
     @Override
     public String getDescription() {
-        return "Считает количество гласных в заголовке документа.";
+        return "Считает количество гласных в  документе.";
     }
 
     @Override
@@ -44,5 +45,9 @@ public class DocumentQuantityVowels extends DocumentFactor {
             }
         }
         return count;
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

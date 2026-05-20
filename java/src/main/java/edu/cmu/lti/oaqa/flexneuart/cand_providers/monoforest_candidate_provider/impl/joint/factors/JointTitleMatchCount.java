@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.JointFactor;
+import org.apache.lucene.search.Query;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -104,5 +105,8 @@ public class JointTitleMatchCount extends JointFactor {
         Set<String> result = new HashSet<>(Arrays.asList(tokens));
 
         return result;
+    }
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

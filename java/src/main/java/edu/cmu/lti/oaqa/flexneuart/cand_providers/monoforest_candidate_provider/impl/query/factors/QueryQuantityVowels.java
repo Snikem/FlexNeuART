@@ -1,6 +1,7 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.query.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.query.QueryFactor;
+import org.apache.lucene.search.Query;
 
 public class QueryQuantityVowels extends QueryFactor {
 
@@ -43,5 +44,9 @@ public class QueryQuantityVowels extends QueryFactor {
             }
         }
         return count;
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

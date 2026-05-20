@@ -1,6 +1,8 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.factors;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.document.DocumentFactor;
+import org.apache.lucene.search.Query;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,5 +47,9 @@ public class DocumentHasUrls extends DocumentFactor {
     @Override
     public void prepare() {
         // Подготовка не требуется
+    }
+
+    public Query buildQuery(float threshold, String query, int featureIndex){
+        return null;
     }
 }

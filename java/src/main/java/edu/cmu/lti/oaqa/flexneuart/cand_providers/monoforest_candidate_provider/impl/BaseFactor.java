@@ -1,4 +1,5 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl;
+import org.apache.lucene.search.Query;
 
 public abstract class BaseFactor {
 
@@ -10,4 +11,6 @@ public abstract class BaseFactor {
     public abstract String getDescription();
 
     public abstract void prepare();
+
+    public abstract Query buildQuery(float threshold, String query, int featureIndex);
 }
