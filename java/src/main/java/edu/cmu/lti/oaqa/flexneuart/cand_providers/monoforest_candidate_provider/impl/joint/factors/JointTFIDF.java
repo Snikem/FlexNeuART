@@ -182,6 +182,11 @@ public class JointTFIDF extends JointFactor {
         }
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
 
     /**
@@ -215,9 +220,5 @@ public class JointTFIDF extends JointFactor {
             tokenStream.end();
         }
         return result;
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

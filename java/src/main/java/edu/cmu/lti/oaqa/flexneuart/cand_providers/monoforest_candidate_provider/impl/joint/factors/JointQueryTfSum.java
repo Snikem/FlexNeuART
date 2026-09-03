@@ -93,6 +93,11 @@ public class JointQueryTfSum extends JointFactor {
         // Подготовка не требуется
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     /**
      * Токенизация: lowercase -> удаление мусора -> split
      */
@@ -104,9 +109,5 @@ public class JointQueryTfSum extends JointFactor {
         String lower = text.toLowerCase();
         String cleaned = TOKENIZE_PATTERN.matcher(lower).replaceAll(" ");
         return cleaned.trim().split("\\s+");
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

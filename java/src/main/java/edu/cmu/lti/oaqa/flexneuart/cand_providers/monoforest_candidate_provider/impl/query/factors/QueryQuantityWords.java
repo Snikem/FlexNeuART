@@ -37,6 +37,11 @@ public class QueryQuantityWords extends QueryFactor {
 
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     private int countWords(String text) {
         if (text == null || text.trim().isEmpty()) {
             return 0;

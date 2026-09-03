@@ -35,15 +35,16 @@ public class DocumentQuantityWords extends DocumentFactor {
 
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     private int countWords(String text) {
         if (text == null || text.trim().isEmpty()) {
             return 0;
         }
         // Делим по пробельным символам (пробел, таб, перенос строки)
         return text.trim().split("\\s+").length;
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

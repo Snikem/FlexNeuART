@@ -12,5 +12,5 @@ public abstract class BaseFactor {
 
     public abstract void prepare();
 
-    public abstract Query buildQuery(float threshold, String query, int featureIndex);
+    public abstract Query buildQuery(String[] queryStream, int featureIndex, Object... args);
 }

@@ -38,6 +38,11 @@ public class QueryQuantityNumbers extends QueryFactor {
     public void prepare() {
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     private int countNumbers(String text) {
         if (text == null || text.isEmpty()) {
             return 0;
@@ -48,9 +53,5 @@ public class QueryQuantityNumbers extends QueryFactor {
             count++;
         }
         return count;
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

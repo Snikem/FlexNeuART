@@ -75,6 +75,11 @@ public class JointBM25AndTFIDF extends JointFactor {
     }
 
     @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
+    @Override
     public float[] calculateScore(String queryText, String title, String document, String doc_id) {
         ArrayList<String> q = new ArrayList<>(1);
         q.add(queryText);
@@ -170,9 +175,5 @@ public class JointBM25AndTFIDF extends JointFactor {
             return -1; // Не найден
         }
         return hits.scoreDocs[0].doc;
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

@@ -67,6 +67,11 @@ public class DocumentQuantityNonDictionaryWords extends DocumentFactor {
         }
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     private int countNonDictWords(String text) {
         if (text == null || text.trim().isEmpty()) {
             return 0;
@@ -79,9 +84,5 @@ public class DocumentQuantityNonDictionaryWords extends DocumentFactor {
             }
         }
         return count;
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

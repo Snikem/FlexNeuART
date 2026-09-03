@@ -33,6 +33,11 @@ public class DocumentQuantityVowels extends DocumentFactor {
         // Нет предварительной подготовки
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     private int countVowels(String text) {
         if (text == null || text.isEmpty()) {
             return 0;
@@ -45,9 +50,5 @@ public class DocumentQuantityVowels extends DocumentFactor {
             }
         }
         return count;
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

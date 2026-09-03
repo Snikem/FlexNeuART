@@ -60,6 +60,11 @@ public class QueryQuantityNouns extends QueryFactor {
     }
 
     @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
+    @Override
     public float[] calculateScore(String query) {
         if (!isReady || query == null || query.trim().isEmpty()) {
             return new float[]{0f};
@@ -88,9 +93,5 @@ public class QueryQuantityNouns extends QueryFactor {
         }
 
         return new float[] { (float) nounCount };
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

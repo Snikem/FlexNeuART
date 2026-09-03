@@ -47,7 +47,8 @@ public class DocumentQuantityParagraphs extends DocumentFactor {
         // Нет предварительной подготовки
     }
 
-    public Query buildQuery(float threshold, String query, int featureIndex){
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
         return null;
     }
 }

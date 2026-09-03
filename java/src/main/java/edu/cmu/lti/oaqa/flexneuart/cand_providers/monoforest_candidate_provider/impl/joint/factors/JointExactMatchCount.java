@@ -74,6 +74,11 @@ public class JointExactMatchCount extends JointFactor {
         // Подготовка не требуется
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     /**
      * Токенизация: lowercase -> удаление мусора -> split -> set
      */

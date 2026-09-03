@@ -1,6 +1,8 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.factors;
 
 import com.google.common.base.Splitter;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.AppConfig;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.MyTokenizer;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.joint.JointFactor;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -45,8 +47,10 @@ public class JointUnorderedWindow extends JointFactor {
 
     @Override
     public float[] calculateScore(String query, String title, String document, String doc_id) {
-        List<String> queryWords = tokenizeAndClean(query);
-        List<String> docWords = tokenizeAndClean(document);
+        MyTokenizer myTokenizer = new MyTokenizer();
+        List<String> queryWords = myTokenizer.tokenize(query);
+        List<String> docWords = myTokenizer.tokenize(document);
+
 
         // Если в запросе меньше двух уникальных значимых слов, совпадений пар быть не может
         Set<String> uniqueQueryTerms = new HashSet<>(queryWords);
@@ -74,9 +78,8 @@ public class JointUnorderedWindow extends JointFactor {
 
             // Если текущее слово не из запроса, идем дальше
             if (!queryTerms.contains(w1)) continue;
-
             // Смотрим вперед на размер окна (не выходя за границы документа)
-            int endWindow = Math.min(i + windowSize, docLength);
+            int endWindow = Math.min(i + windowSize + 2, docLength);
             for (int j = i + 1; j < endWindow; j++) {
                 String w2 = docWords.get(j);
 
@@ -90,21 +93,6 @@ public class JointUnorderedWindow extends JointFactor {
         return matchCount;
     }
 
-    private List<String> tokenizeAndClean(String text) {
-        if (text == null || text.isEmpty()) return new ArrayList<>();
-
-        String cleanText = text.toLowerCase().replaceAll("[^a-z0-9\\s]", " ");
-        String[] rawWords = cleanText.trim().split("\\s+");
-
-        List<String> processedWords = new ArrayList<>(rawWords.length);
-
-        for (String word : rawWords) {
-            if (word.isEmpty() || STOP_WORDS.contains(word)) continue;
-            processedWords.add(fastStem(word));
-        }
-
-        return processedWords;
-    }
 
     private float scoreCommonNgrams(List<String> queryWords, List<String> docWords, int n) {
         if (queryWords.size() < n || docWords.size() < n) return 0f;
@@ -187,6 +175,11 @@ public class JointUnorderedWindow extends JointFactor {
         }
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     private float calculatePmiThroughLucene(List<String> words) {
 
         try {
@@ -196,7 +189,7 @@ public class JointUnorderedWindow extends JointFactor {
             BooleanQuery.Builder booleanBuilder = new BooleanQuery.Builder();
 
             for (String word : words) {
-                Term term = new Term(TEXT_FIELD, word);
+                Term term = new Term(AppConfig.getTextField(), word);
 
                 // Добавляем условие: документ ДОЛЖЕН содержать это слово (оператор AND)
                 booleanBuilder.add(new TermQuery(term), BooleanClause.Occur.MUST);
@@ -225,7 +218,6 @@ public class JointUnorderedWindow extends JointFactor {
             return 0f;
         }
     }
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
-    }
+
+
 }

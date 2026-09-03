@@ -108,7 +108,9 @@ public class JointRankBM25 extends JointFactor {
         this.parser = new QueryParser(TEXT_FIELD, analyzer);
     }
 
-    public Query buildQuery(float threshold, String query, int featureIndex){
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
         return null;
     }
+
 }

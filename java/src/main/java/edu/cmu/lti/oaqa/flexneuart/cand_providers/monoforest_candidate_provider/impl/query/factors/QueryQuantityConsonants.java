@@ -32,6 +32,11 @@ public class QueryQuantityConsonants extends QueryFactor {
         // Подготовка не требуется
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     private int countConsonants(String text) {
         if (text == null || text.isEmpty()) {
             return 0;
@@ -48,9 +53,5 @@ public class QueryQuantityConsonants extends QueryFactor {
             }
         }
         return count;
-    }
-
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }

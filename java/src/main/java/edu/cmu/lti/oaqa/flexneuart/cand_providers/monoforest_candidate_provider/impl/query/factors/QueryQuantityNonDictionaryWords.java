@@ -76,7 +76,8 @@ public class QueryQuantityNonDictionaryWords extends QueryFactor {
         }
     }
 
-    public Query buildQuery(float threshold, String query, int featureIndex){
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
         return null;
     }
 }

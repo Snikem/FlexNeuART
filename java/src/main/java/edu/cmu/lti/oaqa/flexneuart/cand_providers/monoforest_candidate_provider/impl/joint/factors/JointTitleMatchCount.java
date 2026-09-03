@@ -75,6 +75,11 @@ public class JointTitleMatchCount extends JointFactor {
         // Подготовка не требуется
     }
 
+    @Override
+    public Query buildQuery(String[] queryStream, int featureIndex, Object... args) {
+        return null;
+    }
+
     /**
      * Токенизация: lowercase -> удаление мусора -> split -> set
      */
@@ -105,8 +110,5 @@ public class JointTitleMatchCount extends JointFactor {
         Set<String> result = new HashSet<>(Arrays.asList(tokens));
 
         return result;
-    }
-    public Query buildQuery(float threshold, String query, int featureIndex){
-        return null;
     }
 }
