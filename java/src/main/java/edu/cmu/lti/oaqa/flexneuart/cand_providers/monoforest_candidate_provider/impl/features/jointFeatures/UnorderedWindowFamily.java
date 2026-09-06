@@ -25,7 +25,7 @@ public class UnorderedWindowFamily implements FeatureFamily {
     // Определяем функциональный интерфейс для вычисления конкретной фичи
     @FunctionalInterface
     private interface FeatureCalculator {
-        FeatureBase calculate(String[] queryTokenStream, DocumentMarco document);
+        FeatureBase calculate(CalculationContext context);
     }
 
     // Мапа (реестр) всех фичей данного семейства
@@ -115,10 +115,11 @@ public class UnorderedWindowFamily implements FeatureFamily {
 
     @Override
     public List<FeatureBase> calculateAllFeaturesInFamily(String[] queryTokenStream, DocumentMarco document) {
-        List<FeatureBase> results = new ArrayList<>();
-        // Проходим по всей мапе и вычисляем каждую фичу
+        CalculationContext context = new CalculationContext(queryTokenStream, document.getTokensBody());
+        List<FeatureBase> results = new ArrayList<>(featureCalculators.size());
+        // Все калькуляторы используют общие промежуточные результаты этого вызова.
         for (Map.Entry<String, FeatureCalculator> entry : featureCalculators.entrySet()) {
-            results.add(entry.getValue().calculate(queryTokenStream, document));
+            results.add(entry.getValue().calculate(context));
         }
         return results;
     }
@@ -129,7 +130,7 @@ public class UnorderedWindowFamily implements FeatureFamily {
         if (calculator == null) {
             throw new IllegalArgumentException("Фича с именем '" + featureName + "' не найдена в семействе " + getNameFamily());
         }
-        return calculator.calculate(queryTokenStream, document);
+        return calculator.calculate(new CalculationContext(queryTokenStream, document.getTokensBody()));
     }
 
     // ===================================================================================
@@ -140,82 +141,102 @@ public class UnorderedWindowFamily implements FeatureFamily {
     // Исполняющие функции (простые N-граммы)
     // ===================================================================================
 
-    private FeatureBase calcBigramCount(String[] queryTokenStream, DocumentMarco document) {
-        int count = countExactNgrams(Arrays.asList(queryTokenStream), document.getTokensBody(), 2);
-        return createFeature("BigramCount", (float) count);
+    private FeatureBase calcBigramCount(CalculationContext context) {
+        context.calculateNgrams();
+        return new FeatureBase("BigramCount", context.bigramCount);
     }
 
-    private FeatureBase calcTrigramCount(String[] queryTokenStream, DocumentMarco document) {
-        int count = countExactNgrams(Arrays.asList(queryTokenStream), document.getTokensBody(), 3);
-        return createFeature("TrigramCount", (float) count);
+    private FeatureBase calcTrigramCount(CalculationContext context) {
+        context.calculateNgrams();
+        return new FeatureBase("TrigramCount", context.trigramCount);
+    }
+
+    private FeatureBase calcWindow4(CalculationContext context) {
+        context.calculateWindows();
+        return new FeatureBase("UnorderedWindow4", context.window4Count);
+    }
+
+    private FeatureBase calcWindow8(CalculationContext context) {
+        context.calculateWindows();
+        return new FeatureBase("UnorderedWindow8", context.window8Count);
     }
 
     /**
-     * Простой алгоритм подсчета точных N-грамм.
-     * Возвращает количество раз, которое ЛЮБАЯ n-грамма из запроса встретилась в документе.
+     * Создается для одной пары запрос-документ. Каждая группа статистик считается
+     * только при первом обращении и затем используется производными признаками.
      */
-    private int countExactNgrams(List<String> queryWords, List<String> docWords, int n) {
-        if (docWords == null || queryWords.size() < n || docWords.size() < n) return 0;
+    private static final class CalculationContext {
+        private final String[] queryTokens;
+        private final List<String> documentTokens;
+        private boolean ngramsCalculated;
+        private boolean windowsCalculated;
+        private int bigramCount;
+        private int trigramCount;
+        private int window4Count;
+        private int window8Count;
 
-        // 1. Собираем уникальные N-граммы из запроса (без учета порядка внутри запроса, но с сохранением порядка слов)
-        Set<String> queryNgrams = new HashSet<>();
-        for (int i = 0; i <= queryWords.size() - n; i++) {
-            queryNgrams.add(join(queryWords, i, n));
+        private CalculationContext(String[] queryTokens, List<String> documentTokens) {
+            this.queryTokens = queryTokens;
+            this.documentTokens = documentTokens;
         }
 
-        // 2. Идем окном по документу и считаем совпадения
-        int matchCount = 0;
-        for (int i = 0; i <= docWords.size() - n; i++) {
-            String docNgram = join(docWords, i, n);
-            if (queryNgrams.contains(docNgram)) {
-                matchCount++;
+        private void calculateNgrams() {
+            if (ngramsCalculated) return;
+            ngramsCalculated = true;
+            if (documentTokens == null || queryTokens.length < 2 || documentTokens.size() < 2) return;
+
+            Set<String> bigrams = new HashSet<>();
+            Set<String> trigrams = new HashSet<>();
+            for (int i = 0; i < queryTokens.length - 1; i++) {
+                String bigram = queryTokens[i] + " " + queryTokens[i + 1];
+                bigrams.add(bigram);
+                if (i + 2 < queryTokens.length) {
+                    trigrams.add(bigram + " " + queryTokens[i + 2]);
+                }
             }
-        }
 
-        return matchCount;
-    }
-
-    private FeatureBase calcWindow4(String[] queryTokenStream, DocumentMarco document) {
-        Set<String> uniqueQueryTerms = new HashSet<>(Arrays.asList(queryTokenStream));
-        float score = (float) countUnorderedWindow(document.getTokensBody(), uniqueQueryTerms, 4);
-        return createFeature("UnorderedWindow4", score);
-    }
-
-    private FeatureBase calcWindow8(String[] queryTokenStream, DocumentMarco document) {
-        Set<String> uniqueQueryTerms = new HashSet<>(Arrays.asList(queryTokenStream));
-        float score = (float) countUnorderedWindow(document.getTokensBody(), uniqueQueryTerms, 8);
-        return createFeature("UnorderedWindow8", score);
-    }
-
-    private FeatureBase createFeature(String name, float value) {
-        // Теперь используем твой новый конструктор
-        return new FeatureBase(name, value);
-    }
-
-    private int countUnorderedWindow(List<String> docWords, Set<String> queryTerms, int windowSize) {
-        if (docWords == null || queryTerms.size() < 2) return 0;
-
-        int matchCount = 0;
-        int docLength = docWords.size();
-
-        for (int i = 0; i < docLength; i++) {
-            String w1 = docWords.get(i);
-            if (!queryTerms.contains(w1)) continue;
-
-            int endWindow = Math.min(i + windowSize + 2, docLength);
-            for (int j = i + 1; j < endWindow; j++) {
-                String w2 = docWords.get(j);
-                if (queryTerms.contains(w2) && !w1.equals(w2)) {
-                    matchCount++;
+            // Общий проход и общий префикс для биграммы и триграммы.
+            for (int i = 0; i < documentTokens.size() - 1; i++) {
+                String bigram = documentTokens.get(i) + " " + documentTokens.get(i + 1);
+                if (bigrams.contains(bigram)) {
+                    bigramCount++;
+                }
+                if (!trigrams.isEmpty() && i + 2 < documentTokens.size()
+                        && trigrams.contains(bigram + " " + documentTokens.get(i + 2))) {
+                    trigramCount++;
                 }
             }
         }
-        return matchCount;
-    }
 
-    private String join(List<String> words, int start, int n) {
-        if (n == 2) return words.get(start) + " " + words.get(start + 1);
-        return words.get(start) + " " + words.get(start + 1) + " " + words.get(start + 2);
+        private void calculateWindows() {
+            if (windowsCalculated) return;
+            windowsCalculated = true;
+            if (documentTokens == null || queryTokens.length < 2) return;
+
+            Set<String> queryTerms = new HashSet<>(Arrays.asList(queryTokens));
+            if (queryTerms.size() < 2) return;
+
+            // Проверяем принадлежность каждого токена запросу один раз.
+            boolean[] matchesQuery = new boolean[documentTokens.size()];
+            for (int i = 0; i < documentTokens.size(); i++) {
+                matchesQuery[i] = queryTerms.contains(documentTokens.get(i));
+            }
+
+            for (int i = 0; i < documentTokens.size(); i++) {
+                if (!matchesQuery[i]) continue;
+                String first = documentTokens.get(i);
+                // Сохраняем прежние границы: расстояние <= windowSize + 1.
+                int endWindow = Math.min(i + 8 + 2, documentTokens.size());
+                for (int j = i + 1; j < endWindow; j++) {
+                    if (matchesQuery[j] && !first.equals(documentTokens.get(j))) {
+                        window8Count++;
+                        if (j - i <= 4 + 1) {
+                            window4Count++;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ===================================================================================

@@ -18,14 +18,14 @@ public class ExactMatchFamily implements FeatureFamily {
 
     @FunctionalInterface
     private interface FeatureCalculator {
-        FeatureBase calculate(String[] queryTokenStream, DocumentMarco document);
+        FeatureBase calculate(MatchStats stats);
     }
 
     private final Map<String, FeatureCalculator> featureCalculators = new LinkedHashMap<>();
 
     public ExactMatchFamily() {
-        featureCalculators.put("ExactMatchRatio", this::calcExactMatchRatio);
-        featureCalculators.put("ExactMatchCount", this::calcExactMatchCount);
+        featureCalculators.put("ExactMatchRatio", stats -> new FeatureBase("ExactMatchRatio", stats.ratio));
+        featureCalculators.put("ExactMatchCount", stats -> new FeatureBase("ExactMatchCount", stats.count));
     }
 
     @Override
@@ -96,9 +96,10 @@ public class ExactMatchFamily implements FeatureFamily {
 
     @Override
     public List<FeatureBase> calculateAllFeaturesInFamily(String[] queryTokenStream, DocumentMarco document) {
-        List<FeatureBase> results = new ArrayList<>();
+        MatchStats stats = new MatchStats(queryTokenStream, document.getTokensBody());
+        List<FeatureBase> results = new ArrayList<>(featureCalculators.size());
         for (Map.Entry<String, FeatureCalculator> entry : featureCalculators.entrySet()) {
-            results.add(entry.getValue().calculate(queryTokenStream, document));
+            results.add(entry.getValue().calculate(stats));
         }
         return results;
     }
@@ -109,37 +110,30 @@ public class ExactMatchFamily implements FeatureFamily {
         if (calculator == null) {
             throw new IllegalArgumentException("Фича с именем '" + featureName + "' не найдена в семействе " + getNameFamily());
         }
-        return calculator.calculate(queryTokenStream, document);
+        return calculator.calculate(new MatchStats(queryTokenStream, document.getTokensBody()));
     }
 
     // ===================================================================================
     // Исполняющие функции
     // ===================================================================================
 
-    private FeatureBase calcExactMatchRatio(String[] queryTokenStream, DocumentMarco document) {
-        Set<String> qWords = new HashSet<>(Arrays.asList(queryTokenStream));
+    /** Общая статистика для всех производных признаков одного вызова. */
+    private static final class MatchStats {
+        private final int count;
+        private final float ratio;
 
-        // Защита от пустого запроса или деления на ноль
-        if (qWords.isEmpty()) {
-            return new FeatureBase("ExactMatchRatio", 0.0f);
+        private MatchStats(String[] queryTokenStream, List<String> documentTokens) {
+            Set<String> queryTerms = new HashSet<>(Arrays.asList(queryTokenStream));
+            int queryLength = queryTerms.size();
+            if (queryLength == 0) {
+                count = 0;
+                ratio = 0.0f;
+                return;
+            }
+
+            queryTerms.retainAll(new HashSet<>(documentTokens));
+            count = queryTerms.size();
+            ratio = (float) count / queryLength;
         }
-
-        int queryLen = qWords.size();
-        Set<String> dWords = new HashSet<>(document.getTokensBody());
-
-        // Оставляем в qWords только те слова, которые есть и в запросе, и в документе
-        qWords.retainAll(dWords);
-
-        float ratio = (float) qWords.size() / queryLen;
-        return new FeatureBase("ExactMatchRatio", ratio);
-    }
-
-    private FeatureBase calcExactMatchCount(String[] queryTokenStream, DocumentMarco document) {
-        Set<String> qWords = new HashSet<>(Arrays.asList(queryTokenStream));
-        Set<String> dWords = new HashSet<>(document.getTokensBody());
-
-        qWords.retainAll(dWords);
-
-        return new FeatureBase("ExactMatchCount", (float) qWords.size());
     }
 }

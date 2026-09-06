@@ -14,6 +14,8 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <lucene.version>8.6.0</lucene.version>
+    <monoforest.testIndexDir>/Volumes/Ex_Volume/msmarcoProcces/lucene_index_positions</monoforest.testIndexDir>
+    <monoforest.testInputDir>/Volumes/Ex_Volume/msmarco/msmarco_v2_doc/</monoforest.testInputDir>
   </properties>
 
   <licenses>
@@ -245,6 +247,27 @@
 
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>3.2.5</version>
+            <configuration>
+              <failIfNoTests>true</failIfNoTests>
+              <testFailureIgnore>false</testFailureIgnore>
+              <environmentVariables>
+                <LUCENE_INDEX_DIR>${monoforest.testIndexDir}</LUCENE_INDEX_DIR>
+                <MSMARCO_INPUT_DIR>${monoforest.testInputDir}</MSMARCO_INPUT_DIR>
+              </environmentVariables>
+              <includes>
+                <include>**/Test*.java</include>
+                <include>**/*Test.java</include>
+                <include>**/*Tests.java</include>
+                <include>**/*TestCase.java</include>
+                <include>**/*IT.java</include>
+              </includes>
+            </configuration>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-dependency-plugin</artifactId>
             <configuration>
               <usedDependencies>
@@ -411,4 +434,9 @@
 
       </plugins>
   </build>
+
+  <!-- Совместимость со старой командой: индексные тесты теперь включены всегда. -->
+  <profiles>
+    <profile><id>index-tests</id></profile>
+  </profiles>
 </project>

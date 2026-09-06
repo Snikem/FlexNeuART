@@ -16,15 +16,15 @@ public class TitleExactMatchFamily implements FeatureFamily {
 
     @FunctionalInterface
     private interface FeatureCalculator {
-        FeatureBase calculate(String[] queryTokenStream, DocumentMarco document);
+        FeatureBase calculate(MatchStats stats);
     }
 
     private final Map<String, FeatureCalculator> featureCalculators = new LinkedHashMap<>();
 
     public TitleExactMatchFamily() {
         // Регистрируем две фичи: долю совпадений и абсолютное количество
-        featureCalculators.put("TitleExactMatchRatio", this::calcTitleExactMatchRatio);
-        featureCalculators.put("TitleExactMatchCount", this::calcTitleExactMatchCount);
+        featureCalculators.put("TitleExactMatchRatio", stats -> new FeatureBase("TitleExactMatchRatio", stats.ratio));
+        featureCalculators.put("TitleExactMatchCount", stats -> new FeatureBase("TitleExactMatchCount", stats.count));
     }
 
     @Override
@@ -88,9 +88,10 @@ public class TitleExactMatchFamily implements FeatureFamily {
 
     @Override
     public List<FeatureBase> calculateAllFeaturesInFamily(String[] queryTokenStream, DocumentMarco document) {
-        List<FeatureBase> results = new ArrayList<>();
+        MatchStats stats = new MatchStats(queryTokenStream, document.getTitleTokens());
+        List<FeatureBase> results = new ArrayList<>(featureCalculators.size());
         for (Map.Entry<String, FeatureCalculator> entry : featureCalculators.entrySet()) {
-            results.add(entry.getValue().calculate(queryTokenStream, document));
+            results.add(entry.getValue().calculate(stats));
         }
         return results;
     }
@@ -101,41 +102,30 @@ public class TitleExactMatchFamily implements FeatureFamily {
         if (calculator == null) {
             throw new IllegalArgumentException("Фича с именем '" + featureName + "' не найдена в семействе " + getNameFamily());
         }
-        return calculator.calculate(queryTokenStream, document);
+        return calculator.calculate(new MatchStats(queryTokenStream, document.getTitleTokens()));
     }
 
     // ===================================================================================
     // Исполняющие функции
     // ===================================================================================
 
-    private FeatureBase calcTitleExactMatchRatio(String[] queryTokenStream, DocumentMarco document) {
-        Set<String> qWords = new HashSet<>(Arrays.asList(queryTokenStream));
+    /** Общая статистика для всех производных признаков одного вызова. */
+    private static final class MatchStats {
+        private final int count;
+        private final float ratio;
 
-        // Защита от пустого запроса или деления на ноль
-        if (qWords.isEmpty()) {
-            return new FeatureBase("TitleExactMatchRatio", 0.0f);
+        private MatchStats(String[] queryTokenStream, List<String> documentTokens) {
+            Set<String> queryTerms = new HashSet<>(Arrays.asList(queryTokenStream));
+            int queryLength = queryTerms.size();
+            if (queryLength == 0) {
+                count = 0;
+                ratio = 0.0f;
+                return;
+            }
+
+            queryTerms.retainAll(new HashSet<>(documentTokens));
+            count = queryTerms.size();
+            ratio = (float) count / queryLength;
         }
-
-        int queryLen = qWords.size();
-
-        // ВАЖНО: Берем токены ЗАГОЛОВКА. Предполагается, что в DocumentMarco есть getTitleTokens().
-        Set<String> dWords = new HashSet<>(document.getTitleTokens());
-
-        // Оставляем в qWords только те слова, которые есть и в запросе, и в заголовке
-        qWords.retainAll(dWords);
-
-        float ratio = (float) qWords.size() / queryLen;
-        return new FeatureBase("TitleExactMatchRatio", ratio);
-    }
-
-    private FeatureBase calcTitleExactMatchCount(String[] queryTokenStream, DocumentMarco document) {
-        Set<String> qWords = new HashSet<>(Arrays.asList(queryTokenStream));
-
-        // ВАЖНО: Берем токены ЗАГОЛОВКА
-        Set<String> dWords = new HashSet<>(document.getTitleTokens());
-
-        qWords.retainAll(dWords);
-
-        return new FeatureBase("TitleExactMatchCount", (float) qWords.size());
     }
 }

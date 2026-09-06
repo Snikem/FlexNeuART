@@ -2,6 +2,8 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.documentFeatures.DocumentFeatureFamily;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.documentFeatures.DocumentFeatureFamilies;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
 import org.apache.lucene.document.*;
@@ -89,6 +91,10 @@ public class LuceneIndexManager {
         System.out.println("Начинаем процесс создания индекса в: " + indexDir);
 
         try {
+            List<DocumentFeatureFamily> documentFamilies = DocumentFeatureFamilies.createDefault();
+            // Загрузить словарь до открытия индекса на перезапись.
+            for (DocumentFeatureFamily family : documentFamilies) family.prepare();
+
             FieldType textType = new FieldType();
             textType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
             textType.setTokenized(true);
@@ -141,6 +147,9 @@ public class LuceneIndexManager {
                             doc.add(new StringField("id", docId, Field.Store.YES));
                             doc.add(new StringField("title", title, Field.Store.YES));
                             doc.add(new Field("text", body, textType));
+                            for (DocumentFeatureFamily family : documentFamilies) {
+                                family.addToLuceneDocument(doc, title, body);
+                            }
 
                             writer.addDocument(doc);
                             totalIndexed++;

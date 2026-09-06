@@ -2,6 +2,8 @@ package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.documentFeatures.DocumentFeatureFamily;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.documentFeatures.DocumentFeatureFamilies;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
 import org.apache.lucene.document.*;
@@ -11,6 +13,7 @@ import org.apache.lucene.store.FSDirectory;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 public class StandaloneMsMarcoIndexer {
@@ -27,6 +30,10 @@ public class StandaloneMsMarcoIndexer {
         System.out.println("Начинаем процесс индексации MS MARCO...");
 
         try {
+            List<DocumentFeatureFamily> documentFamilies = DocumentFeatureFamilies.createDefault();
+            // Загрузить словарь до открытия индекса на перезапись.
+            for (DocumentFeatureFamily family : documentFamilies) family.prepare();
+
             // 1. Настраиваем тип поля для текста: позиции ВКЛЮЧЕНЫ, текст СОХРАНЯЕТСЯ
             FieldType textType = new FieldType();
             textType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
@@ -89,6 +96,9 @@ public class StandaloneMsMarcoIndexer {
                             doc.add(new StringField("id", docId, Field.Store.YES));
                             doc.add(new StringField("title", title, Field.Store.YES));
                             doc.add(new Field("text", body, textType));
+                            for (DocumentFeatureFamily family : documentFamilies) {
+                                family.addToLuceneDocument(doc, title, body);
+                            }
 
                             writer.addDocument(doc);
                             totalIndexed++;

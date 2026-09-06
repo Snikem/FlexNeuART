@@ -1,5 +1,8 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.jointFeatures.tests;
 
+import org.junit.Test;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.AvailableIndexTest;
+
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.DocumentMarco;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.LuceneIndexManager;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.MyTokenizer;
@@ -11,9 +14,10 @@ import org.apache.lucene.search.Query;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FeatureFamilyTestSuite {
+public class UnorderedWindowFamilyIT extends AvailableIndexTest {
 
-    public static void main(String[] args) {
+    @Test
+    public void verifiesIndexMatches() throws Exception {
         // Берем частую фразу, чтобы гарантированно найти тексты с >2 повторениями
         String testQuery = "high blood pressure";
 
@@ -27,7 +31,6 @@ public class FeatureFamilyTestSuite {
 
             FeatureFamily family = new UnorderedWindowFamily();
             System.out.println("Количество фичей для теста: " + family.getAllFeaturesNames().size());
-            family.prepare();
 
             System.out.println("Запуск тестов для семейства: " + family.getNameFamily());
             System.out.println("Описание: " + family.getDescription());
@@ -43,8 +46,7 @@ public class FeatureFamilyTestSuite {
                 System.out.println("Всего найдено документов в Lucene: " + foundDocs.size());
 
                 if (foundDocs.isEmpty()) {
-                    System.out.println("Документы не найдены. Переходим к следующей фиче.");
-                    continue;
+                    throw new AssertionError("Нет документов для проверки фичи " + featureName);
                 }
 
                 int numSamples = Math.min(100, foundDocs.size());
@@ -87,18 +89,12 @@ public class FeatureFamilyTestSuite {
                 System.out.println("✅ УСПЕШНО (всего): " + passed);
                 System.out.println("🚀 ИЗ НИХ БОЛЬШЕ 2 СОВПАДЕНИЙ: " + superMatches);
                 if (failed > 0) {
-                    System.out.println("❌ ОШИБОК (0 совпадений): " + failed);
+                    throw new AssertionError(featureName + ": расхождений " + failed);
                 }
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
-            try {
-                indexManager.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            indexManager.close();
         }
     }
 }

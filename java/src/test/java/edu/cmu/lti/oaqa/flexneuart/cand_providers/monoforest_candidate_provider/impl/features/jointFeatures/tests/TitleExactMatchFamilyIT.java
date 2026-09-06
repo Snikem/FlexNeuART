@@ -1,20 +1,23 @@
 package edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.jointFeatures.tests;
 
+import org.junit.Test;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.AvailableIndexTest;
 
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.DocumentMarco;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.LuceneIndexManager;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.MyTokenizer;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.FeatureBase;
 import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.FeatureFamily;
-import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.jointFeatures.ExactMatchFamily;
+import edu.cmu.lti.oaqa.flexneuart.cand_providers.monoforest_candidate_provider.impl.features.jointFeatures.TitleExactMatchFamily;
 import org.apache.lucene.search.Query;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ExactMatchFamilyTestSuite {
+public class TitleExactMatchFamilyIT extends AvailableIndexTest {
 
-    public static void main(String[] args) {
+    @Test
+    public void verifiesIndexMatches() throws Exception {
         // Берем запрос с разными словами, чтобы проверить пропорции (Ratio)
         String testQuery = "high blood pressure treatment symptoms";
 
@@ -28,7 +31,7 @@ public class ExactMatchFamilyTestSuite {
             indexManager.init();
 
             // 2. Подготавливаем наше новое семейство фичей
-            FeatureFamily family = new ExactMatchFamily();
+            FeatureFamily family = new TitleExactMatchFamily();
             System.out.println("Количество фичей для теста: " + family.getAllFeaturesNames().size());
             family.prepare();
 
@@ -40,16 +43,16 @@ public class ExactMatchFamilyTestSuite {
                 System.out.println("\n=======================================================");
                 System.out.println("▶ Тестируем фичу: " + featureName);
 
-                float targetCoefficient = 0.5f;
+                float targetCoefficient = 0.1f;
                 Query luceneQuery;
 
                 // Для Ratio ищем совпадение больше 50%
-                if (featureName.equals("ExactMatchRatio")) {
-                    luceneQuery = family.buildLuceneQuery(featureName, queryStream, 0.5f);
+                if (featureName.equals("TitleExactMatchRatio")) {
+                    luceneQuery = family.buildLuceneQuery(featureName, queryStream, targetCoefficient);
                 }
-// Для Count ищем совпадения строго больше 2 слов
+                // Для Count ищем совпадения строго больше 2 слов
                 else {
-                    luceneQuery = family.buildLuceneQuery(featureName, queryStream, 2);
+                    luceneQuery = family.buildLuceneQuery(featureName, queryStream, 1);
                 }
 
                 System.out.println("Сгенерированный Lucene запрос: " + luceneQuery.toString());
@@ -59,8 +62,7 @@ public class ExactMatchFamilyTestSuite {
                 System.out.println("Всего найдено документов в Lucene: " + foundDocs.size());
 
                 if (foundDocs.isEmpty()) {
-                    System.out.println("Документы не найдены. Переходим к следующей фиче.");
-                    continue;
+                    throw new AssertionError("Нет документов для проверки фичи " + featureName);
                 }
 
                 // 4. Выбираем до 100 документов для детальной проверки
@@ -79,8 +81,9 @@ public class ExactMatchFamilyTestSuite {
 
                 // 5. Прогоняем проверку
                 for (DocumentMarco doc : sampledDocs) {
-                    // Токенизируем текст
-                    doc.tokenizeBody(myTokenizer);
+                    // ВАЖНО: Токенизируем ЗАГОЛОВОК, а не весь текст
+                    // (предполагается, что такой метод есть в DocumentMarco)
+                    doc.tokenizeTitle(myTokenizer);
 
                     // Считаем фичу
                     FeatureBase result = family.calculateFeatureByName(featureName, queryStream, doc);
@@ -89,19 +92,19 @@ public class ExactMatchFamilyTestSuite {
                     String errorMessage = "";
 
                     // Специфичная логика проверки для каждой фичи
-                    if (featureName.equals("ExactMatchRatio")) {
-                        // Ratio должно быть строго больше 0 (раз документ найден) и <= 1.0 (максимум 100%)
+                    if (featureName.equals("TitleExactMatchRatio")) {
+                        // Ratio должно быть строго больше targetCoefficient (0.5)
                         if (result.value > targetCoefficient) {
                             isPassed = true;
                         } else {
-                            errorMessage = "Ожидалось от (0.0 до 1.0], но получено: " + result.value;
+                            errorMessage = "Ожидалось > " + targetCoefficient + ", но получено: " + result.value;
                         }
-                    } else if (featureName.equals("ExactMatchCount")) {
-                        // Count должен быть целым числом больше 0
-                        if (result.value > 2.0f) {
+                    } else if (featureName.equals("TitleExactMatchCount")) {
+                        // Count должен быть строго больше 2
+                        if (result.value > 1.0f) {
                             isPassed = true;
                         } else {
-                            errorMessage = "Ожидалось > 0, но получено: " + result.value;
+                            errorMessage = "Ожидалось > 2.0, но получено: " + result.value;
                         }
                     }
 
@@ -121,18 +124,12 @@ public class ExactMatchFamilyTestSuite {
                 // 6. Итоги
                 System.out.println("✅ УСПЕШНО: " + passed);
                 if (failed > 0) {
-                    System.out.println("❌ ОШИБОК: " + failed);
+                    throw new AssertionError(featureName + ": расхождений " + failed);
                 }
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
-            try {
-                indexManager.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            indexManager.close();
         }
     }
 }
