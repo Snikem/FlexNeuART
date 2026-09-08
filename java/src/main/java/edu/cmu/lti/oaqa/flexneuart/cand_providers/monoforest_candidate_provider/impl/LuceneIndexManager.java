@@ -48,6 +48,12 @@ public class LuceneIndexManager {
         return results;
     }
 
+    /** Общий searcher для диагностики запросов; reader закрывается через close() менеджера. */
+    public IndexSearcher getSearcher() {
+        checkInitialized();
+        return searcher;
+    }
+
     public DocumentMarco getDocumentById(String docId) throws IOException {
         checkInitialized();
         Query query = new TermQuery(new Term("id", docId));
