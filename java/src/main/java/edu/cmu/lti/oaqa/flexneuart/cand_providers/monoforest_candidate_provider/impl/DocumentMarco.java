@@ -67,9 +67,7 @@ public class DocumentMarco {
     }
 
     public void tokenizeTitle(MyTokenizer tokenizer) {
-        if (this.title != null && !this.title.isEmpty()) {
-            this.tokensTitle = tokenizer.tokenize(this.title);
-        }
+        this.tokensTitle = tokenizer.tokenize(this.title);
     }
 
 
